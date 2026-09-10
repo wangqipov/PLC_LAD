@@ -55,10 +55,16 @@ export const SingletonOpInfo = {
 export class SingletonViewData {
     static inst: SingletonViewData | null = null;
     watchReturnMap = new Map<string, unknown>();
-    context: { editor?: { notificationService?: { info: (text: string) => void } } } | undefined;
+    context: {
+        editor?: {
+            notificationService?: { info: (text: string) => void };
+            controller?: { saveFileHandle: () => void };
+        };
+    } | undefined;
     programDataCache: unknown[] = [];
     cacheActiveIndex = 0;
-    allLibs: unknown[] = [];
+    programData: unknown[] = [];
+    allLibs: { fb: { guid: string }[]; fu: { guid: string }[] }[] = [];
     allLibsMap: Record<string, unknown> = {};
 
     setCacheActiveIndex(index: number): void {

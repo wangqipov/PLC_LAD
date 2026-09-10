@@ -135,7 +135,7 @@ export function deleteLine(id: string, _this: Lad) {
             let obj1 = undefined;
             for (let i = children.length - 1; i > -1; i--) {
                 obj1 = linkedList[children[i]];
-                if (obj1 && obj1.blockType === 'ANB' && linkedList[(obj1.children as string[])[(obj1.children as string[])]]) {
+                if (obj1 && obj1.blockType === 'ANB' && linkedList[(obj1.children as string[])[(obj1.children as string[]).length - 1]].type === 'OB') {
                     OBImproveLevel(children[i], linkedList, _this.data);
                 }
             }

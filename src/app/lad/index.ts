@@ -2,9 +2,10 @@ import { Data, LadData } from './class/index'
 import { CanvasView } from '@/app/lad/class';
 import { initFontSize } from '@/app/lad/service/setBaseLength'
 import { calculateViewer } from '@/app/lad/service/calculateViewer';
+import { initData } from '@/app/lad/service/index';
 
 function createCanvas(obj: Lad) {
-
+    initData(obj);
 }
 
 class Lad {

@@ -4,7 +4,7 @@
 
 import Lad from '../index';
 import { TreeNode, TreeNodeObj, StringArr, ElementType, FBParameter } from '../class/index';
-import { calculateLines, clearVal, ifFBFU, initVDom, calculateLocation, initBlueLine, initHeight, initPinOffsetY, transformData } from '@/app/lad/controller/calculate';
+import { calculateLines, clearVal, ifFBFU, initVDom, calculateLocation, initBlueLine, initHeight, initPinOffsetY, initWidth, cleanLine } from '@/app/lad/controller/calculate';
 import { add as addElement, connectOB as connectOBT, setVarName as setVarNameT, setVarNameParam } from '@/app/lad/service/transformData';
 import { updateViewer } from '@/app/lad/service/updateViewer';
 import { updateCanvas } from '@/app/lad/service/updateCanvas';
@@ -100,11 +100,32 @@ function setdata(_this: Fbd, times: number) {
   console.log('linkedList',linkedList)
 }
 
+export {
+    ProgramSegmentAdd,
+    ProgramSegmentDelete,
+    ProgramSegmentOrder,
+    ProgramSegmentParam,
+    isProgramSegmentAdd,
+    isProgramSegmentDelete,
+    isProgramSegmentOrder,
+    isProgramSegmentParam,
+} from '@/app/lad/class/cacheData';
+
 export function initData(_this: Lad) {
-    const { data, } = _this;
+    const { data } = _this;
     const { rootId } = data;
     try {
-
+        clearVal(_this, rootId);
+        initPinOffsetY(_this, rootId);
+        initWidth(_this, rootId, 0);
+        initHeight(_this, rootId);
+        calculateLocation(_this, rootId);
+        cleanLine(_this);
+        calculateLines(_this, rootId, false);
+        initBlueLine(_this);
+        initVDom(_this);
+        initCanvas(_this);
+        updateViewer(_this);
     } catch (error) {
         console.log(error);
     }

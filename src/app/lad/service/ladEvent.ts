@@ -5,14 +5,14 @@
 /**
  * These events are bound to a single Lad instance (one network).
  */
-import { fb } from '../data1';
-import { SingletonOpInfo, SingletonViewData } from '../../eventAndShareData/shareData';
-import Lad from '../plcLad/index';
+import { fb } from '@/app/lad/stubs/data1';
+import { SingletonOpInfo, SingletonViewData } from '@/app/lad/stubs/shareData';
+import Lad from '@/app/lad/index';
 // import { modifyFbName } from 'ld2Datas';
 import { Editing, FbEditing } from '@/app/lad/view/core/textEditor';
 import { add, connectOB, setVarName } from './index';
 import { ElementType, FBParameter, TreeNode } from '../class/index';
-import { getStrHeight } from '../../virtualScrolling/utility';
+import { getStrHeight } from '@/app/lad/stubs/utility';
 import { blockTextNum } from '@/app/lad/view/core/config';
 import { MiniRectOpts, PositionDir } from '@/app/lad/view';
 import { ifCanConnectOB } from '@/app/lad/service/transformData';
