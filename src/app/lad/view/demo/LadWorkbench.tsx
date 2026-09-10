@@ -1,0 +1,134 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
+import type { LadData } from '@/app/lad/class/index';
+import { CanvasView } from '@/app/lad/view/core/core';
+import type { LadViewHost } from '@/app/lad/view/core/viewHost';
+import { PALETTE_GROUPS, PALETTE_MIME } from '@/app/lad/view/interaction/dragDrop';
+import { createSampleNetwork } from '@/app/lad/view/demo/sampleNetwork';
+import styles from '@/app/lad/view/demo/workbench.module.css';
+
+/**
+ * TIA-style workbench: palette on the left + virtual-scroll canvas in the middle.
+ * Mounts CanvasView directly, skipping the Lad constructor (unmigrated vscode modules would crash the page).
+ * Production still creates the view with `new CanvasView(viewerDom, rootId, this)` in Lad.
+ */
+export function LadWorkbench() {
+    const animateOutRef = useRef<HTMLDivElement>(null);
+    const animateRef = useRef<HTMLDivElement>(null);
+    const viewerRef = useRef<HTMLDivElement>(null);
+    const viewRef = useRef<CanvasView | null>(null);
+
+    useEffect(() => {
+        const viewerDom = viewerRef.current;
+        const animateDom = animateRef.current;
+        const animateOutDom = animateOutRef.current;
+        if (!viewerDom || !animateDom || !animateOutDom) {
+            return;
+        }
+        const data = createSampleNetwork();
+        animateDom.style.width = `${data.widthV}px`;
+        animateDom.style.height = `${data.heightV}px`;
+        const ladData: LadData = {
+            id: 'network-1',
+            index: 0,
+            show: true,
+            title: '网络 1：电动机星三角',
+            notes: '',
+            data,
+            animateDom,
+            animateOutDom,
+            viewerDom,
+        };
+        const host: LadViewHost = {
+            basicLength: 30,
+            fontSize: 12,
+            lineHeight: 1.2,
+            width: 100,
+            height: 100,
+            viewer: [[0, 0], [50, 50]],
+            viewElement: [],
+            viewLine: [],
+            viewBlueLine: [],
+            data,
+            ladData,
+            canvas: null,
+            ctx: null,
+            FBPinHeight: 0.6,
+            margin_horizontal: 2,
+            margin_vertical: 0.5,
+            fBMargin: 1,
+            FBLeftHeight: 1.5,
+            invokeCoreOnDrop: true,
+        };
+        const view = new CanvasView(viewerDom, data.rootId, host);
+        host.canvasView = view;
+        viewRef.current = view;
+        view.on('nodedrop', (...args: unknown[]) => {
+            console.log('[LAD] nodedrop', args);
+            // TODO: call project API add / moveElements / connectOB
+        });
+        view.updateScroll();
+        return () => {
+            view.stage.destroy();
+            viewRef.current = null;
+        };
+    }, []);
+
+    return (
+        <div className={styles.workbench}>
+            <header className={styles.chrome}>
+                <span className={styles.product}>IEC 61131-3 LAD</span>
+                <span className={styles.networkTitle}>电动机控制 · 网络 1</span>
+                <span className={styles.hint}>演示约 5000 元件 · 空白处拖动滚动 · 右键/中键/空格+左键拖动滚动 · Ctrl拖动框选 · 拖入添加 · 拖元件移动 · 滚轮缩放</span>
+            </header>
+            <div className={styles.body}>
+                <aside className={styles.palette}>
+                    <div className={styles.paletteHead}>指令</div>
+                    {PALETTE_GROUPS.map((group) => (
+                        <div key={group.title} className={styles.group}>
+                            <div className={styles.groupTitle}>{group.title}</div>
+                            {group.items.map((item) => (
+                                <div
+                                    key={item.type}
+                                    className={styles.item}
+                                    draggable
+                                    onDragStart={(e) => {
+                                        e.dataTransfer.setData(PALETTE_MIME, item.type);
+                                        e.dataTransfer.setData('text/plain', item.type);
+                                        e.dataTransfer.effectAllowed = 'copy';
+                                        const view = viewRef.current;
+                                        if (view) {
+                                            view.paletteType = item.type;
+                                        }
+                                    }}
+                                >
+                                    {item.type === 'OB' ? <OpenBranchIcon /> : null}
+                                    <span>{item.label}</span>
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                </aside>
+                <div id="centerView" className={styles.centerView}>
+                    <div ref={animateOutRef} className={styles.animateOut}>
+                        <div className={styles.networkBar}>网络 1：电动机星三角</div>
+                        <div ref={animateRef} className={styles.animate}>
+                            <div ref={viewerRef} className={styles.viewer} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/** Open branch: filled right-pointing arrow */
+function OpenBranchIcon() {
+    return (
+        <svg className={styles.obIcon} viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M1 8 H8" fill="none" />
+            <polygon points="8,4 15,8 8,12" stroke="none" />
+        </svg>
+    );
+}

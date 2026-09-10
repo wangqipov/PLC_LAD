@@ -1,0 +1,119 @@
+.workbench {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: #e8e8e8;
+    color: #1a1a1a;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 12px;
+}
+
+.chrome {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 32px;
+    padding: 0 12px;
+    background: #d6d6d6;
+    border-bottom: 1px solid #b4b4b4;
+    flex-shrink: 0;
+}
+
+.product {
+    font-weight: 600;
+    color: #0b4f8a;
+}
+
+.networkTitle {
+    color: #333;
+}
+
+.hint {
+    margin-left: auto;
+    color: #666;
+}
+
+.body {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+}
+
+.palette {
+    width: 220px;
+    background: #f4f4f4;
+    border-right: 1px solid #c8c8c8;
+    overflow: auto;
+    flex-shrink: 0;
+}
+
+.paletteHead {
+    padding: 8px 10px;
+    font-weight: 600;
+    background: #ececec;
+    border-bottom: 1px solid #d0d0d0;
+}
+
+.groupTitle {
+    padding: 6px 10px 4px;
+    color: #555;
+    font-weight: 600;
+}
+
+.item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 12px;
+    cursor: grab;
+    user-select: none;
+}
+
+.item:hover {
+    background: #dceef8;
+}
+
+.obIcon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    fill: #1a1a1a;
+    stroke: #1a1a1a;
+    stroke-width: 1.6;
+    stroke-linecap: square;
+    stroke-linejoin: miter;
+}
+
+.centerView {
+    flex: 1;
+    overflow: auto;
+    background: #cfd4da;
+    position: relative;
+}
+
+.animateOut {
+    min-width: 100%;
+    min-height: 100%;
+    background: #ffffff;
+}
+
+.networkBar {
+    height: 22px;
+    line-height: 22px;
+    padding: 0 8px;
+    background: #fff4d4;
+    border-bottom: 1px solid #e6d59a;
+    font-weight: 600;
+}
+
+.animate {
+    position: relative;
+    background: #ffffff;
+    /* Create a BFC so viewer marginTop does not collapse with the parent; calculateViewer can then align to the scroll window */
+    overflow: hidden;
+}
+
+.viewer {
+    position: relative;
+    background: transparent;
+}
