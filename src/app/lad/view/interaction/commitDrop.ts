@@ -45,6 +45,9 @@ export async function commitPaletteAdd(host: LadViewHost, attrs: DropAttrs, type
         if (isCoilLike(addType) && (target.type !== 'OB' || direction !== 'left')) {
             return null;
         }
+        if (isCoilLike(String(target.type)) && direction === 'right') {
+            return null;
+        }
         const addObj = {
             type: addType as ElementType,
             id: targetId,
@@ -103,6 +106,9 @@ export async function commitElementMove(host: LadViewHost, ids: string[], attrs:
     }
     const target = host.data.linkedList[targetId];
     if (!isLadElement(target)) {
+        return false;
+    }
+    if (isCoilLike(String(target.type)) && attrs.direction === 'right') {
         return false;
     }
     try {

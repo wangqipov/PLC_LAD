@@ -1,7 +1,7 @@
 import type { TreeNodeObj } from '@/app/lad/class/index';
 import { ASSIST_OUTSET, ASSIST_SIZE } from '@/app/lad/view/core/config';
 import type { HitTarget, LadViewHost, MiniRectOpts, PositionDir } from '@/app/lad/view/core/viewHost';
-import { boxPinY, elementDrawX, isBoxInstruction, orthogonalPreview } from '@/app/lad/view/render/drawSymbols';
+import { boxPinY, elementDrawX, isBoxInstruction, isCoil, orthogonalPreview } from '@/app/lad/view/render/drawSymbols';
 import { cssToWorld, worldToViewerGrid } from '@/app/lad/view/interaction/zoomPan';
 
 function isFbFu(type?: string): boolean {
@@ -310,7 +310,7 @@ export function buildAssistPoints(
                 result.left.push(assistSlot(id, 'left', x - gap - size + nest, py - size / 2, size));
             }
         }
-        if (dirs.indexOf('right') >= 0 && node.type !== 'OB') {
+        if (dirs.indexOf('right') >= 0 && node.type !== 'OB' && !isCoil(node.type as string) && node.type !== 'jump' && node.type !== 'return') {
             if (box && node.right) {
                 node.right.forEach((pin, pinIndex) => {
                     const cy = (boxPinY(node, pin) - leftTopY) * bl;

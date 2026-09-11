@@ -2046,7 +2046,7 @@ const calculateLineMap: {
 
         //draw the rightest line
         const lastnode = linkedList[children[children.length - 1]] as TreeNode;
-        if (lastnode.blockType === 'element' && lastnode.type !== 'OB' && lastnode.type !== 'END') {
+        if (lastnode.blockType === 'element' && lastnode.type !== 'OB' && lastnode.type !== 'END' && !ifEnd(lastnode.type as string)) {
             const right = getLRElement('right', linkedList, id);
             addLineMap(ifUseOldId, _this, {
                 type: 'horizontal',
@@ -2210,7 +2210,7 @@ function ORBandFBLLine(_this: Lad, id: string, ifUseOldId: boolean) {
             } else if (obj.type === 'OB') {
                 res = false;
             }
-            else if (obj.type === 'END') {
+            else if (obj.type === 'END' || ifEnd(obj.type as string)) {
                 res = false;
             }
             return res;
@@ -2278,7 +2278,7 @@ function ORBandFBLLine(_this: Lad, id: string, ifUseOldId: boolean) {
                             continue;
                         }
                         if (o.blockType === 'element') {
-                            if (o.type === 'OB' || o.type === 'END') {
+                            if (o.type === 'OB' || o.type === 'END' || ifEnd(o.type as string)) {
 
                             } else {
 
@@ -2298,7 +2298,7 @@ function ORBandFBLLine(_this: Lad, id: string, ifUseOldId: boolean) {
                     const o = linkedList[children[children.length - 1]];
 
                     if (o.blockType === 'element') {
-                        if (o.type !== 'OB' && o.type !== 'END') {
+                        if (o.type !== 'OB' && o.type !== 'END' && !ifEnd(o.type as string)) {
                             lastItem = o;
                         } else {
                             lastItem = get_lastItem(o, dir);
@@ -2354,7 +2354,7 @@ function ORBandFBLLine(_this: Lad, id: string, ifUseOldId: boolean) {
                             continue;
                         }
                         if (o.blockType === 'element') {
-                            if (o.type === 'OB' || o.type === 'END') {
+                            if (o.type === 'OB' || o.type === 'END' || ifEnd(o.type as string)) {
                                 continue;// Skip connecting
                             } else {
 
@@ -2374,7 +2374,7 @@ function ORBandFBLLine(_this: Lad, id: string, ifUseOldId: boolean) {
                     const o = linkedList[children[children.length - 1]];
 
                     if (o.blockType === 'element') {
-                        if (o.type !== 'OB' && o.type !== 'END') {
+                        if (o.type !== 'OB' && o.type !== 'END' && !ifEnd(o.type as string)) {
                             lastItem = o;
                         }
                     } else {
@@ -2665,7 +2665,7 @@ function ORBandFBLLine(_this: Lad, id: string, ifUseOldId: boolean) {
          * loop drawing the right side horizontal lines
          */
         const ci: TreeNode = linkedList[children[i]];
-        if (ci.blockType === 'element' && ci.type !== 'OB' && ci.type !== 'END') {
+        if (ci.blockType === 'element' && ci.type !== 'OB' && ci.type !== 'END' && !ifEnd(ci.type as string)) {
             
             /**
              * draw right horizontal lines

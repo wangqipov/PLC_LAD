@@ -24,6 +24,7 @@ import { selectedNodeById } from '@/app/lad/view/interaction/selection';
 import { buildAssistPoints, DragLineController, filterLineAssists, visibleConnectPoints } from '@/app/lad/view/interaction/wireDrag';
 import { getCenterView, scrollNodeIntoView } from '@/app/lad/view/interaction/zoomPan';
 import { LadRenderer } from '@/app/lad/view/render/renderer';
+import { isCoil } from '@/app/lad/view/render/drawSymbols';
 
 /**
  * LAD canvas view. Native Canvas, API aligned with the original Konva CanvasView,
@@ -263,6 +264,9 @@ export class CanvasView {
     async beginConnectLine(sourceId: string, sourceDir?: PositionDir, sourcePinIndex?: number): Promise<void> {
         const source = this.host.data.linkedList[sourceId];
         if (!source || source.blockType !== 'element') {
+            return;
+        }
+        if (sourceDir === 'right' && (isCoil(source.type as string) || source.type === 'jump' || source.type === 'return')) {
             return;
         }
         const sourceSide: 'left' | 'right' = sourceDir === 'right' ? 'right' : 'left';

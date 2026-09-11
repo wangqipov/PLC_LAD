@@ -2112,6 +2112,10 @@ export const addCheck = (linkedList: TreeNodeObj, type: ElementType, direction: 
         }
     }
     if (ifEnd(obj.type as string) && type !== 'OB') {
+        if (direction === 'right') {
+            throwNotifyInfoHandle('线圈后面禁止连接', 2);
+            return false;
+        }
         if (direction === 'down') {
             // Coils cannot be paralleled with non-OB elements
             return false;

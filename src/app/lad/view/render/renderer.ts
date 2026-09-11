@@ -11,7 +11,7 @@ import type {
     SceneLine,
     ScenePolyline,
 } from '@/app/lad/view/core/viewHost';
-import { boxPinY, isBoxInstruction, paintElement, paintLine, paintPolyline, wirePinX } from '@/app/lad/view/render/drawSymbols';
+import { boxPinY, isBoxInstruction, isCoil, paintElement, paintLine, paintPolyline, wirePinX } from '@/app/lad/view/render/drawSymbols';
 import {
     paintAssistRect,
     paintGhost,
@@ -256,7 +256,9 @@ export class LadRenderer {
             return;
         }
         this.hitTargets.push({ kind: 'pin', id, pinIndex: 0, pinSide: 'left', path: pinPath(x, py) });
-        this.hitTargets.push({ kind: 'pin', id, pinIndex: 0, pinSide: 'right', path: pinPath(x + w, py) });
+        if (!isCoil(treeNode.type as string) && treeNode.type !== 'jump' && treeNode.type !== 'return') {
+            this.hitTargets.push({ kind: 'pin', id, pinIndex: 0, pinSide: 'right', path: pinPath(x + w, py) });
+        }
     }
 
     /**

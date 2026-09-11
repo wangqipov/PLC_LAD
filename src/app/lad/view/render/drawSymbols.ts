@@ -169,6 +169,12 @@ function drawCoilSymbol(
     ctx.arc(cx, py, r, -span / 2, span / 2, false);
     ctx.stroke();
 
+    const barH = basicLength * 0.28;
+    ctx.beginPath();
+    ctx.moveTo(x + w, py - barH);
+    ctx.lineTo(x + w, py + barH);
+    ctx.stroke();
+
     if (type === 'N‑COIL' || type === 'N-COIL') {
         ctx.beginPath();
         ctx.moveTo(cx - r * 0.38, py + r * 0.55);

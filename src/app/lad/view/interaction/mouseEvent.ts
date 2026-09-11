@@ -2,7 +2,7 @@ import type { LadRenderer } from '@/app/lad/view/render/renderer';
 import type { LadViewHost } from '@/app/lad/view/core/viewHost';
 import type { DragLineController } from '@/app/lad/view/interaction/wireDrag';
 import type { Editing, FbEditing } from '@/app/lad/view/core/textEditor';
-import { PALETTE_MIME, dropEventAttrs, elementMovePreview, palettePreviewAt, ghostGridAtAssist, filterAssistForAdd, isLadElement, onlyElementIds } from '@/app/lad/view/interaction/dragDrop';
+import { PALETTE_MIME, dropEventAttrs, elementMovePreview, palettePreviewAt, ghostGridAtAssist, filterAssistForAdd, isCoilLike, isLadElement, onlyElementIds } from '@/app/lad/view/interaction/dragDrop';
 import { buildAssistPoints, wireDropToConnectArgs } from '@/app/lad/view/interaction/wireDrag';
 import { idsInMarquee, hitElementByBBox, hitTest, pickAssistExact, pickAssistNear } from '@/app/lad/view/interaction/hitTest';
 import { selectClick, selectMarquee } from '@/app/lad/view/interaction/selection';
@@ -595,6 +595,9 @@ function startWireFrom(
 ): void {
     const node = view.host.data.linkedList[id];
     if (!isLadElement(node) || (dir !== 'left' && dir !== 'right')) {
+        return;
+    }
+    if (dir === 'right' && isCoilLike(node.type as string)) {
         return;
     }
     const pinSide: 'left' | 'right' = dir === 'right' ? 'right' : 'left';
