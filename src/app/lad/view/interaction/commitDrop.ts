@@ -2,7 +2,17 @@ import type { ElementType } from '@/app/lad/class/index';
 import type Lad from '@/app/lad/index';
 import type { LadViewHost, PositionDir } from '@/app/lad/view/core/viewHost';
 import { isBoxInstruction } from '@/app/lad/view/render/drawSymbols';
-import { isCoilLike } from '@/app/lad/view/interaction/dragDrop';
+import { isCoilLike, isLadElement, onlyElementIds } from '@/app/lad/view/interaction/dragDrop';
+import {
+    commitPasteAt,
+    elementIdsAdded,
+    findConnectLineId,
+    findPasteAnchor,
+    recordAdd,
+    recordConnect,
+    recordMove,
+} from '@/app/lad/view/interaction/editHistory';
+import { copy } from '@/app/lad/service/paste';
 
 export interface DropAttrs {
     /** Drop-target element id passed to moveElements / add */
@@ -32,24 +42,26 @@ export async function commitPaletteAdd(host: LadViewHost, attrs: DropAttrs, type
         const box = isBoxInstruction(type);
         const addType = type === 'COIL' ? 'Coil' : type;
         const direction = addType === 'OB' ? 'down' : attrs.direction;
+        if (addType === 'OB' && attrs.direction !== 'down') {
+            return null;
+        }
         if (isCoilLike(addType) && (target.type !== 'OB' || direction !== 'left')) {
             return null;
         }
-        const uuid = add(
-            {
-                type: addType as ElementType,
-                id: targetId,
-                direction,
-                pinIndex: attrs.pinIndex,
-                width: box ? 4 : 1,
-                height: box ? 3 : 1,
-            },
-            host.data
-        ) as string | null;
+        const addObj = {
+            type: addType as ElementType,
+            id: targetId,
+            direction,
+            pinIndex: attrs.pinIndex,
+            width: box ? 4 : 1,
+            height: box ? 3 : 1,
+        };
+        const uuid = add(addObj, host.data) as string | null;
         if (!uuid) {
             return null;
         }
         await runUpdateCanvas(host);
+        recordAdd(host, addObj, uuid);
         return uuid;
     } catch (err) {
         console.error('[LAD] transformData.add 失败', err);
@@ -65,24 +77,47 @@ export async function commitElementMove(host: LadViewHost, ids: string[], attrs:
     if (attrs.direction !== 'left' && attrs.direction !== 'right') {
         return false;
     }
+    const copyIds = onlyElementIds(host.data.linkedList, ids);
     const targetId = dropTargetId(attrs);
-    if (!targetId || ids.indexOf(targetId) >= 0) {
+    if (!copyIds.length || !targetId || copyIds.indexOf(targetId) >= 0) {
         return false;
     }
     const target = host.data.linkedList[targetId];
-    if (!target || target.blockType !== 'element') {
+    if (!isLadElement(target)) {
         return false;
     }
     try {
         ensureLayoutFields(host);
+        const undoTarget = findPasteAnchor(host, copyIds);
+        const before = Object.keys(host.data.linkedList);
         const { moveElements } = await import('@/app/lad/service/moveElements');
-        // TODO: call project API moveElements(copyIds, lad, id, direction, true)
-        moveElements(ids, host as unknown as Lad, targetId, attrs.direction, true);
+        moveElements(copyIds, host as unknown as Lad, targetId, attrs.direction, false);
+        const newIds = elementIdsAdded(host.data, before);
+        if (undoTarget && newIds.length) {
+            recordMove(host, copyIds, targetId, attrs.direction, newIds, undoTarget);
+        }
         return true;
     } catch (err) {
         console.error('[LAD] moveElements 失败', err);
         return false;
     }
+}
+
+/** Ctrl+drag onto a slot: copy() + paste(), same as a clipboard paste */
+export async function commitElementCopy(host: LadViewHost, ids: string[], attrs: DropAttrs): Promise<boolean> {
+    if (attrs.direction !== 'left' && attrs.direction !== 'right') {
+        return false;
+    }
+    const copyIds = onlyElementIds(host.data.linkedList, ids);
+    const targetId = dropTargetId(attrs);
+    if (!copyIds.length || !targetId || copyIds.indexOf(targetId) >= 0) {
+        return false;
+    }
+    const clip = copy(copyIds, host as unknown as Lad);
+    if (!clip) {
+        return false;
+    }
+    return commitPasteAt(host, { id: targetId, direction: attrs.direction }, clip);
 }
 
 /**
@@ -100,21 +135,22 @@ export async function commitConnectLine(
         return false;
     }
     try {
-        const { connectOB } = await import('@/app/lad/service/transformData');
-        // TODO: call project API connectOB({ OBId, targetId, pinIndex, direction }, lad, true)
-        const ok = connectOB(
-            {
-                OBId: obj.OBId,
-                targetId: obj.targetId,
-                direction: obj.direction,
-                pinIndex: obj.pinIndex,
-            },
-            host.data
-        );
+        const { connectOB, ifCanConnectOB } = await import('@/app/lad/service/transformData');
+        const line = {
+            OBId: obj.OBId,
+            targetId: obj.targetId,
+            direction: obj.direction,
+            pinIndex: obj.pinIndex,
+        };
+        if (!ifCanConnectOB(line, host.data)) {
+            return false;
+        }
+        const ok = connectOB(line, host.data);
         if (!ok) {
             return false;
         }
         await runUpdateCanvas(host);
+        recordConnect(host, line, findConnectLineId(host.data, line.OBId, line.targetId));
         return true;
     } catch (err) {
         console.error('[LAD] connectOB 失败', err);

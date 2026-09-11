@@ -59,5 +59,8 @@ export const ASSIST_SIZE = 0.2;
 /** Assist boxes sit on pin/wire ends with no extra gap */
 export const ASSIST_OUTSET = 0;
 
+/** Extra hit pad (grid units) so the 0.2-grid yellow square can start a wire */
+export const ASSIST_WIRE_HIT = 0.35;
+
 /** Magnet radius as a multiple of the grid (covers margin_horizontal) */
 export const ASSIST_MAGNET = 1.05;

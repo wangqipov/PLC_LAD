@@ -1,5 +1,5 @@
 import type { TreeNode } from '@/app/lad/class/index';
-import { PIN_HIT_RADIUS, WIRE_HIT_HALF } from '@/app/lad/view/core/config';
+import { ASSIST_SIZE, PIN_HIT_RADIUS, WIRE_HIT_HALF } from '@/app/lad/view/core/config';
 import type { LineLocation } from '@/app/lad/view/core/viewHost';
 import { elementDrawX } from '@/app/lad/view/render/drawSymbols';
 
@@ -11,18 +11,25 @@ import { elementDrawX } from '@/app/lad/view/render/drawSymbols';
 const SELECT_PAD_PX = 4;
 const LABEL_PAD_PX = 16;
 
-/** Selection / click hot zone: element grid box + variable label above, matching the selection frame */
+/** Selection / click hot zone: symbol + label, inset so yellow drop slots stay outside */
 export function elementSelectBox(treeNode: TreeNode, basicLength: number): { x: number; y: number; w: number; h: number } {
     const box = elementDrawX(treeNode);
-    const w = Math.max(box.w, 0.8) * basicLength + SELECT_PAD_PX * 2;
-    const x = box.x * basicLength - SELECT_PAD_PX;
+    const assistPx = ASSIST_SIZE * basicLength + 2;
+    let w = Math.max(box.w, 0.8) * basicLength + SELECT_PAD_PX * 2;
+    let x = box.x * basicLength - SELECT_PAD_PX;
+    x += assistPx;
+    w -= assistPx * 2;
+    if (w < basicLength * 0.45) {
+        w = basicLength * 0.45;
+        x = box.x * basicLength + (box.w * basicLength - w) / 2;
+    }
     if (treeNode.type === 'OB') {
         const py = (treeNode.pinY ?? treeNode.location.y + (treeNode.pinOffsetY ?? 0.4)) * basicLength;
         const h = basicLength * 0.7;
         return { x, y: py - h / 2, w, h };
     }
     const y = treeNode.location.y * basicLength - LABEL_PAD_PX - SELECT_PAD_PX;
-    const h = Math.max(treeNode.height, 0.8) * basicLength + LABEL_PAD_PX + SELECT_PAD_PX * 2;
+    const h = Math.max(treeNode.height, 0.8) * basicLength + LABEL_PAD_PX + SELECT_PAD_PX * 2 - assistPx;
     return { x, y, w, h };
 }
 

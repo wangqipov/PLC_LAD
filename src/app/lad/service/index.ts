@@ -186,7 +186,8 @@ export function connectCOB(obj: COBobj, _this: Lad, ifSaveCache: boolean) {
     }
 }
 
-
+/** ladEvent nodedrop(LINE) calls connectOB(obj, Lad, true) */
+export const connectOB = connectCOB;
 
 interface setVarNameP extends setVarNameParam {
     _this: Lad;

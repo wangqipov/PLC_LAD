@@ -10,8 +10,7 @@ import { cleanViewer } from '@/app/lad/service/cleanViewer';
 import { drawBlueLine } from '@/app/lad/service/drawBlueLine';
 import { VirtualDomX, VD, LineLocation, TreeNode, FBParameter } from '../class/index';
 import { ifCanConnectOB } from '@/app/lad/service/transformData';
-
-type JsonObj = Record<string, unknown>;
+import { filterLineAssists } from '@/app/lad/view/interaction/wireDrag';
 
 /**
  * 
@@ -255,24 +254,22 @@ export function drawViewer(_this: Lad, isScroll?: boolean) {
     // Redraw hint boxes while scrolling
     if (SingletonOpInfo.instance.getState() === 'dragLine' && _this.canvasView && _this.canvasView.DragLine) {
         const arrow = _this.canvasView.DragLine.getCurrentTargetNode();
+        const src = _this.canvasView.DragLine.getSource();
         // Recalculate hint points when scrolling during a wire drag
-        if (arrow && arrow.attrs.type === 'OB' && arrow.attrs.id && linkedList[arrow.attrs.id] !== undefined) {
-            const obId = arrow.attrs.id;
+        if (arrow && arrow.attrs.id && linkedList[arrow.attrs.id] !== undefined) {
+            const sourceId = arrow.attrs.id;
+            const sourceDir = src?.pinSide === 'right' ? 'right' : 'left';
             const dirs = ['left', 'right'];
-            _this.canvasView.showAssistPoint('LINE', 'OB', obId, dirs as any, (oSetData) => {
-                const result: unknown[] = [];
-                for (const dir of dirs) {
-                    const list = (oSetData as JsonObj)[dir] as Array<{ parentId: string; pinIndex?: number }>;
-                    list.forEach((item) => {
-                        if (obId !== item.parentId) {
-                            if (ifCanConnectOB({ OBId: obId, targetId: item.parentId, pinIndex: item.pinIndex, direction: dir as 'left' | 'right' }, _this.data)) {
-                                result.push(item);
-                            }
-                        }
-                    });
-                }
-                return result as any;
-            });
+            _this.canvasView.showAssistPoint('LINE', arrow.attrs.type === 'OB' ? 'OB' : 'TARGET', sourceId, dirs as any, (oSetData) =>
+                filterLineAssists(
+                    linkedList,
+                    sourceId,
+                    sourceDir,
+                    src?.pinIndex,
+                    oSetData,
+                    (obj) => ifCanConnectOB(obj, _this.data)
+                )
+            );
             dirs.length = 0;
         }
     }

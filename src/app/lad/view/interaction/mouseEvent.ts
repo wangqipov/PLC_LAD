@@ -2,11 +2,12 @@ import type { LadRenderer } from '@/app/lad/view/render/renderer';
 import type { LadViewHost } from '@/app/lad/view/core/viewHost';
 import type { DragLineController } from '@/app/lad/view/interaction/wireDrag';
 import type { Editing, FbEditing } from '@/app/lad/view/core/textEditor';
-import { PALETTE_MIME, dropEventAttrs, elementMovePreview, palettePreviewAt, ghostGridAtAssist, filterAssistForAdd } from '@/app/lad/view/interaction/dragDrop';
-import { idsInMarquee, hitElementByBBox, hitTest, pickAssistNear } from '@/app/lad/view/interaction/hitTest';
+import { PALETTE_MIME, dropEventAttrs, elementMovePreview, palettePreviewAt, ghostGridAtAssist, filterAssistForAdd, isLadElement, onlyElementIds } from '@/app/lad/view/interaction/dragDrop';
+import { buildAssistPoints } from '@/app/lad/view/interaction/wireDrag';
+import { idsInMarquee, hitElementByBBox, hitTest, pickAssistExact, pickAssistNear } from '@/app/lad/view/interaction/hitTest';
 import { selectClick, selectMarquee } from '@/app/lad/view/interaction/selection';
 import { nextBasicLength, panBy, zoomAtCursor } from '@/app/lad/view/interaction/zoomPan';
-import { ASSIST_MAGNET } from '@/app/lad/view/core/config';
+import { ASSIST_MAGNET, ASSIST_WIRE_HIT } from '@/app/lad/view/core/config';
 import type { MiniRectOpts, PositionDir } from '@/app/lad/view/core/viewHost';
 
 export interface CanvasPointerHost {
@@ -29,16 +30,22 @@ export interface CanvasPointerHost {
     applyNodedrop(
         moveType: 'OUT' | 'IN' | 'LINE',
         payload: { attrs: { id?: string; parentId: string; direction: PositionDir; pinIndex?: number; type?: string } },
-        extra: { type?: string; ids?: string[]; OBId?: string }
+        extra: { type?: string; ids?: string[]; OBId?: string; copy?: boolean }
     ): Promise<void>;
     beginConnectLine(sourceId: string, sourceDir?: PositionDir, sourcePinIndex?: number): Promise<void>;
+    rememberPasteTarget(id?: string, direction?: PositionDir): void;
+    applyDelete(ids?: string[]): Promise<void>;
+    applyCopy(ids?: string[]): void;
+    applyPaste(): Promise<void>;
+    applyUndo(): Promise<void>;
+    applyRedo(): Promise<void>;
 }
 
 type Gesture =
     | { name: 'idle' }
     | { name: 'pan'; lastX: number; lastY: number; startX: number; startY: number; clickClears: boolean }
     | { name: 'marquee'; x0: number; y0: number; ctrl: boolean }
-    | { name: 'move'; ids: string[]; startX: number; startY: number; dragging: boolean }
+    | { name: 'move'; ids: string[]; startX: number; startY: number; dragging: boolean; copy: boolean }
     | { name: 'wire'; startX: number; startY: number }
     | { name: 'palette' };
 
@@ -102,28 +109,53 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
         const boxHit = hitElementByBBox(view.renderer.hitTargets, x, y);
         const hit = hitTest(view.ctx, view.renderer.hitTargets, x, y, view.dpr);
         const yellow = resolveAssist(view, x, y);
+        const yellowWire = resolveWireAssist(view, x, y);
         const onOb = (id?: string) => elementType(view, id) === 'OB';
+        const yellowObId = yellowWire
+            ? (onOb(yellowWire.parentId || yellowWire.id) ? (yellowWire.parentId || yellowWire.id) : undefined)
+            : yellow && onOb(yellow.parentId || yellow.id)
+                ? (yellow.parentId || yellow.id)
+                : undefined;
 
-        // Click inside a non-OB symbol always selects; yellow magnets must not steal this.
-        if (boxHit && !onOb(boxHit.id)) {
-            selectClick(view.renderer, boxHit.id, e.ctrlKey);
-            view.syncSelection();
-            view.emit('nodeclick', { attrs: { id: boxHit.id } });
-            gesture = { name: 'move', ids: Array.from(view.renderer.overlay.selectedIds), startX: x, startY: y, dragging: false };
-            capture(e);
-            paint();
-            return;
+        // Yellow square starts a wire and must not start a symbol move.
+        if (yellowWire) {
+            const slotId = yellowWire.parentId || yellowWire.id;
+            if (slotId && isLadElement(view.host.data.linkedList[slotId])) {
+                view.rememberPasteTarget(slotId, yellowWire.direction);
+                startWireFrom(view, slotId, yellowWire.direction, yellowWire.pinIndex, yellowWire);
+                gesture = { name: 'wire', startX: x, startY: y };
+                capture(e);
+                paint();
+                return;
+            }
         }
 
-        // Yellow slot / arrow: start a wire; drop calls connectOB
-        if (yellow) {
-            const id = yellow.parentId || yellow.id;
-            startWireFrom(view, id, yellow.direction, yellow.pinIndex);
+        // Arrow, or magnet-near yellow on empty paper next to an arrow.
+        if (yellowObId && !boxHit) {
+            const slot = yellow ?? yellowWire;
+            startWireFrom(view, yellowObId, slot?.direction ?? 'left', slot?.pinIndex, slot ?? undefined);
             gesture = { name: 'wire', startX: x, startY: y };
             capture(e);
             paint();
             return;
         }
+
+        // Click inside a non-OB symbol selects / moves; skip when the pointer is on a yellow slot.
+        if (boxHit && !onOb(boxHit.id) && isLadElement(view.host.data.linkedList[boxHit.id])) {
+            selectClick(view.renderer, boxHit.id, e.ctrlKey);
+            view.syncSelection();
+            view.emit('nodeclick', { attrs: { id: boxHit.id } });
+            const ids = onlyElementIds(view.host.data.linkedList, view.renderer.overlay.selectedIds);
+            if (!ids.length) {
+                ids.push(boxHit.id);
+            }
+            view.rememberPasteTarget(boxHit.id, 'right');
+            gesture = { name: 'move', ids, startX: x, startY: y, dragging: false, copy: e.ctrlKey };
+            capture(e);
+            paint();
+            return;
+        }
+
         const obId = onOb(boxHit?.id)
             ? boxHit?.id
             : (hit?.kind === 'element' || hit?.kind === 'pin') && onOb(hit.id)
@@ -196,17 +228,27 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
             const boxHit = hitElementByBBox(view.renderer.hitTargets, x, y);
             const hit = hitTest(view.ctx, view.renderer.hitTargets, x, y, view.dpr);
             const assist = resolveAssist(view, x, y);
-            const hoverId = boxHit?.id ?? (hit?.kind === 'element' || hit?.kind === 'pin' ? hit.id : undefined);
-            const nextCursor = assist
-                ? 'copy'
-                : hit?.kind === 'pin'
-                    ? 'crosshair'
-                    : boxHit
-                        ? 'pointer'
-                        : 'grab';
-            if (hoverId !== view.renderer.overlay.hoverId || assist !== view.renderer.overlay.hotAssist || canvas.style.cursor !== nextCursor) {
+            const wireAssist = resolveWireAssist(view, x, y);
+            const hoverId = wireAssist
+                ? undefined
+                : (boxHit?.id ?? (hit?.kind === 'element' || hit?.kind === 'pin' ? hit.id : undefined));
+            if (wireAssist) {
+                view.rememberPasteTarget(wireAssist.parentId || wireAssist.id, wireAssist.direction);
+            }
+            const nextCursor = wireAssist
+                ? 'crosshair'
+                : elementType(view, hoverId) === 'OB'
+                        ? 'crosshair'
+                        : !boxHit && assist
+                            ? 'copy'
+                            : hit?.kind === 'pin'
+                                ? 'crosshair'
+                                : boxHit
+                                    ? 'pointer'
+                                    : 'grab';
+            if (hoverId !== view.renderer.overlay.hoverId || (wireAssist ?? assist) !== view.renderer.overlay.hotAssist || canvas.style.cursor !== nextCursor) {
                 view.renderer.overlay.hoverId = hoverId;
-                view.renderer.overlay.hotAssist = assist;
+                view.renderer.overlay.hotAssist = wireAssist ?? (!boxHit ? assist : null);
                 canvas.style.cursor = nextCursor;
                 paint();
             }
@@ -228,7 +270,10 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
         if (gesture.name === 'marquee') {
             const m = view.renderer.overlay.marquee;
             if (m && Math.hypot(m.x1 - m.x0, m.y1 - m.y0) > 4) {
-                const ids = idsInMarquee(view.renderer.hitTargets, m.x0, m.y0, m.x1, m.y1);
+                const ids = onlyElementIds(
+                    view.host.data.linkedList,
+                    idsInMarquee(view.renderer.hitTargets, m.x0, m.y0, m.x1, m.y1)
+                );
                 selectMarquee(view.renderer, ids, gesture.ctrl);
                 view.syncSelection();
             }
@@ -242,7 +287,8 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
                 gesture = { name: 'idle' };
                 return;
             }
-            const ids = gesture.ids;
+            const ids = onlyElementIds(view.host.data.linkedList, gesture.ids);
+            const copyDrop = gesture.copy;
             const assist = resolveAssist(view, x, y);
             view.renderer.overlay.ghost = undefined;
             view.renderer.overlay.hotAssist = null;
@@ -251,7 +297,7 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
             if (assist) {
                 const payload = dropEventAttrs(assist, view.rootId);
                 view.emit('nodedrop', payload, { moveType: 'IN', data: ids });
-                void view.applyNodedrop('IN', payload, { ids }).finally(() => {
+                void view.applyNodedrop('IN', payload, { ids, copy: copyDrop }).finally(() => {
                     view.installConnectPoints();
                     paint();
                 });
@@ -269,7 +315,9 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
             view.renderer.overlay.hotAssist = null;
             canvas.style.cursor = 'grab';
             gesture = { name: 'idle' };
-            const line = !click && from && assist ? connectLineDrop(view, from.fromId, from.pinSide, from.pinIndex, assist) : null;
+            const line = !click && from && assist
+                ? connectLineDrop(view, from.fromId, from.fromSide, from.fromPin, assist)
+                : null;
             if (click) {
                 if (!hitElementByBBox(view.renderer.hitTargets, x, y)) {
                     clearCanvasSelection(view);
@@ -408,10 +456,39 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
             canvas.style.cursor = 'grab';
             paint();
         }
+        if (isTextInputTarget(e.target)) {
+            return;
+        }
+        const ctrl = e.ctrlKey || e.metaKey;
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            const ids = Array.from(view.renderer.overlay.selectedIds);
-            view.emit('nodedelete', ids);
-            // TODO: call project API deleteArr(ids, lad, true)
+            e.preventDefault();
+            void view.applyDelete();
+            return;
+        }
+        if (ctrl && (e.key === 'c' || e.key === 'C')) {
+            e.preventDefault();
+            view.applyCopy();
+            return;
+        }
+        if (ctrl && (e.key === 'x' || e.key === 'X')) {
+            e.preventDefault();
+            view.applyCopy();
+            void view.applyDelete();
+            return;
+        }
+        if (ctrl && (e.key === 'v' || e.key === 'V')) {
+            e.preventDefault();
+            void view.applyPaste();
+            return;
+        }
+        if (ctrl && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+            e.preventDefault();
+            void view.applyUndo();
+            return;
+        }
+        if (ctrl && (e.key === 'y' || e.key === 'Y' || ((e.key === 'z' || e.key === 'Z') && e.shiftKey))) {
+            e.preventDefault();
+            void view.applyRedo();
         }
     }, { signal });
 
@@ -442,6 +519,14 @@ function isTextInputTarget(target: EventTarget | null): boolean {
 }
 
 function applyAddSlotFilter(view: CanvasPointerHost, type: string, excludeIds?: Iterable<string>): void {
+    const addType = type === 'COIL' ? 'Coil' : type;
+    // addCheck only allows OB with direction === 'down' (parallel branch)
+    if (addType === 'OB') {
+        const downs = buildAssistPoints(view.host, ['down'], excludeIds).down;
+        view.renderer.overlay.assistPoints = downs;
+        view.positionList = downs;
+        return;
+    }
     view.installConnectPoints(excludeIds);
     const filtered = filterAssistForAdd(view.host, view.renderer.overlay.assistPoints, type);
     view.renderer.overlay.assistPoints = filtered;
@@ -456,6 +541,10 @@ function resolveAssist(view: CanvasPointerHost, x: number, y: number): MiniRectO
     return pickAssistNear(view.renderer.overlay.assistPoints, x, y, magnetPx(view.host));
 }
 
+function resolveWireAssist(view: CanvasPointerHost, x: number, y: number): MiniRectOpts | null {
+    return pickAssistExact(view.renderer.overlay.assistPoints, x, y, ASSIST_WIRE_HIT * view.host.basicLength);
+}
+
 function elementType(view: CanvasPointerHost, id?: string): string | undefined {
     if (!id) {
         return undefined;
@@ -463,21 +552,39 @@ function elementType(view: CanvasPointerHost, id?: string): string | undefined {
     return view.host.data.linkedList[id]?.type as string | undefined;
 }
 
-function startWireFrom(view: CanvasPointerHost, id: string, dir: PositionDir, pinIndex?: number): void {
+function startWireFrom(
+    view: CanvasPointerHost,
+    id: string,
+    dir: PositionDir,
+    pinIndex?: number,
+    assist?: MiniRectOpts
+): void {
     const node = view.host.data.linkedList[id];
+    if (!isLadElement(node) || (dir !== 'left' && dir !== 'right')) {
+        return;
+    }
     const pinSide: 'left' | 'right' = dir === 'right' ? 'right' : 'left';
-    const vx = view.host.viewer[0][0];
-    const vy = view.host.viewer[0][1];
-    const gx = node
-        ? (pinSide === 'left' ? node.location.x : node.location.x + (node.width || 1)) - vx
-        : 0;
-    const gy = (node?.pinY ?? node?.location.y ?? 0) - vy;
+    const bl = view.host.basicLength;
+    let gx: number;
+    let gy: number;
+    if (assist) {
+        gx = (assist.x + assist.width / 2) / bl;
+        gy = (assist.y + assist.height / 2) / bl;
+    } else {
+        const vx = view.host.viewer[0][0];
+        const vy = view.host.viewer[0][1];
+        gx = node
+            ? (pinSide === 'left' ? node.location.x : node.location.x + (node.width || 1)) - vx
+            : 0;
+        gy = (node?.pinY ?? node?.location.y ?? 0) - vy;
+    }
     view.DragLine.begin({
         id,
         pinIndex: pinIndex ?? 0,
         pinSide,
         gridX: gx,
         gridY: gy,
+        type: String(node.type ?? ''),
     });
     view.emit('beforedragLine', id);
     if (view.host.invokeCoreOnDrop) {
@@ -499,13 +606,13 @@ function connectLineDrop(
     const fromType = elementType(view, fromId);
     const toType = elementType(view, toId);
     const slotDir = assist.direction === 'right' ? 'right' : assist.direction === 'left' ? 'left' : null;
-    if (fromType === 'OB') {
-        if (!slotDir) {
-            return null;
-        }
+    if (!slotDir) {
+        return null;
+    }
+    if (fromType === 'OB' && toType !== 'OB') {
         return { OBId: fromId, targetId: toId, direction: slotDir, pinIndex: assist.pinIndex };
     }
-    if (toType === 'OB') {
+    if (fromType !== 'OB' && toType === 'OB') {
         return { OBId: toId, targetId: fromId, direction: fromSide, pinIndex: fromPinIndex };
     }
     return null;

@@ -1,3 +1,4 @@
+import type { TreeNodeObj } from '@/app/lad/class/index';
 import { ASSIST_OUTSET, ASSIST_SIZE } from '@/app/lad/view/core/config';
 import type { HitTarget, LadViewHost, MiniRectOpts, PositionDir } from '@/app/lad/view/core/viewHost';
 import { boxPinY, elementDrawX, isBoxInstruction, orthogonalPreview } from '@/app/lad/view/render/drawSymbols';
@@ -7,10 +8,67 @@ export interface WireDragState {
     fromId: string;
     fromPin: number;
     fromSide: 'left' | 'right';
+    fromType: string;
     startGridX: number;
     startGridY: number;
     currentGridX: number;
     currentGridY: number;
+}
+
+export type ConnectObCheck = (obj: {
+    OBId: string;
+    targetId: string;
+    direction: 'left' | 'right';
+    pinIndex?: number;
+}) => boolean;
+
+/**
+ * LINE drop slots for connectOB. Source may be the arrow or a target yellow;
+ * the core call is always { OBId, targetId, direction of the target }.
+ */
+export function filterLineAssists(
+    linkedList: TreeNodeObj,
+    sourceId: string,
+    sourceDir: 'left' | 'right',
+    sourcePinIndex: number | undefined,
+    grouped: Record<PositionDir, MiniRectOpts[]>,
+    canConnect: ConnectObCheck
+): MiniRectOpts[] {
+    const source = linkedList[sourceId];
+    if (!source || source.blockType !== 'element') {
+        return [];
+    }
+    const fromOb = source.type === 'OB';
+    const result: MiniRectOpts[] = [];
+    for (const dir of ['left', 'right'] as const) {
+        for (const item of grouped[dir]) {
+            const otherId = item.parentId || item.id;
+            if (!otherId || otherId === sourceId) {
+                continue;
+            }
+            try {
+                const ok = fromOb
+                    ? canConnect({
+                        OBId: sourceId,
+                        targetId: otherId,
+                        direction: dir,
+                        pinIndex: item.pinIndex,
+                    })
+                    : linkedList[otherId]?.type === 'OB' && canConnect({
+                        OBId: otherId,
+                        targetId: sourceId,
+                        direction: sourceDir,
+                        pinIndex: sourcePinIndex,
+                    });
+                if (ok) {
+                    result.push(item);
+                }
+            } catch {
+                /* Replica / incomplete nodes can throw inside the core check */
+            }
+        }
+    }
+    return result;
 }
 
 /**
@@ -19,22 +77,41 @@ export interface WireDragState {
 export class DragLineController {
     private state: WireDragState | null = null;
 
-    getCurrentTargetNode(): { attrs: { type?: string; id?: string } } | null {
+    getCurrentTargetNode(): { attrs: { type?: string; id?: string; direction?: string; pinIndex?: number } } | null {
         if (!this.state) {
             return null;
         }
-        return { attrs: { type: 'OB', id: this.state.fromId } };
+        return {
+            attrs: {
+                type: this.state.fromType,
+                id: this.state.fromId,
+                direction: this.state.fromSide,
+                pinIndex: this.state.fromPin,
+            },
+        };
+    }
+
+    getSource(): { id: string; pinSide: 'left' | 'right'; pinIndex: number } | null {
+        if (!this.state) {
+            return null;
+        }
+        return {
+            id: this.state.fromId,
+            pinSide: this.state.fromSide,
+            pinIndex: this.state.fromPin,
+        };
     }
 
     get active(): boolean {
         return this.state !== null;
     }
 
-    begin(from: { id: string; pinIndex: number; pinSide: 'left' | 'right'; gridX: number; gridY: number }): void {
+    begin(from: { id: string; pinIndex: number; pinSide: 'left' | 'right'; gridX: number; gridY: number; type?: string }): void {
         this.state = {
             fromId: from.id,
             fromPin: from.pinIndex,
             fromSide: from.pinSide,
+            fromType: from.type || 'OB',
             startGridX: from.gridX,
             startGridY: from.gridY,
             currentGridX: from.gridX,

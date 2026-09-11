@@ -4,7 +4,7 @@
 
 import { deepClone } from '@/app/common/objects';
 import { generateUuid } from '@/app/common/uuid';
-import { ifFBFU, initFBMargin, ifEnd, delConnectId, getAncestorArray, getPublicNearstTreeNode } from '@/app/lad/controller/calculate';
+import { ifFBFU, initFBMargin, ifEnd, delConnectId, getAncestorArray, getPublicNearstTreeNode, getPublicNearestTreeNode } from '@/app/lad/controller/calculate';
 import { Data, ElementType, FBParameter, StringArr, TreeNode, TreeNodeObj } from '@/app/lad/class/index';
 import { getFBOriginalHeight, initFbPin } from '@/app/lad/service/initFbPin';
 import config from '../config';
@@ -1468,7 +1468,7 @@ export function connectOB(obj: COBobj, data: Data): boolean {
     } else {
         // When connecting a non-function-block
         if (ifCanConnect_common(linkedList, OBpid as string, rootId, index, targetArr, direction, OBindex, targetIndex, c)) {
-            connectLine(linkedList, OBpid as string, id2, targetArr, index, OBindex, targetIndex, target, direction, data, OBId);
+            connectLine(linkedList, OBpid as string, id2, targetArr, index, OBindex, targetIndex, targetId, c, target, direction, data, OBId);
             return true;
         }
     }

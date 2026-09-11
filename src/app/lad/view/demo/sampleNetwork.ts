@@ -53,6 +53,7 @@ function makePins(count: number, side: 'left' | 'right'): FBParameter[] {
             pinOffsetFirstPin: i * FB_PIN_HEIGHT,
             varNameHeight: FB_PIN_HEIGHT,
             pinY: 0,
+            dataType: 'BOOL',
             varName: side === 'left'
                 ? (isFirst ? 'EN' : `IN${i}`)
                 : (isFirst ? 'ENO' : `OUT${i}`),

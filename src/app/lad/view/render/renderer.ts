@@ -116,6 +116,10 @@ export class LadRenderer {
                 }
                 if (cell.items) {
                     for (const id of cell.items) {
+                        const node = host.data.linkedList[id];
+                        if (!node || node.blockType !== 'element' || node.type === 'END') {
+                            continue;
+                        }
                         if (viewElement.indexOf(id) === -1) {
                             viewElement.push(id);
                         }
@@ -167,7 +171,7 @@ export class LadRenderer {
 
         for (const id of host.viewElement) {
             const src = linkedList[id];
-            if (!src || src.type === 'END') {
+            if (!src || src.blockType !== 'element' || src.type === 'END') {
                 continue;
             }
             const treeNode: TreeNode = {

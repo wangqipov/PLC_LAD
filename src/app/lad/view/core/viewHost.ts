@@ -46,6 +46,8 @@ export interface LadViewHost {
      * Leave false/undefined with Lad + ladEvent to avoid double-add.
      */
     invokeCoreOnDrop?: boolean;
+    /** Canvas undo/redo queue (method + args). Created by CanvasView. */
+    editHistory?: import('@/app/lad/view/interaction/editHistory').EditHistory;
 }
 
 export interface DrawElementOpts {

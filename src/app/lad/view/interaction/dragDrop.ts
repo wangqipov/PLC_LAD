@@ -1,7 +1,24 @@
+import type { TreeNode, TreeNodeObj } from '@/app/lad/class/index';
 import type { MiniRectOpts, PositionDir } from '@/app/lad/view/core/viewHost';
 import type { LadViewHost } from '@/app/lad/view/core/viewHost';
 import { cssToWorld, snapGrid, worldToViewerGrid } from '@/app/lad/view/interaction/zoomPan';
 import { isBoxInstruction, isCoil } from '@/app/lad/view/render/drawSymbols';
+
+/** Leaf LAD symbol. ANB / ORB / FBL must not be passed to moveElements / copy. */
+export function isLadElement(node?: TreeNode): boolean {
+    return !!node && node.blockType === 'element' && node.type !== 'END';
+}
+
+/** moveElements(copyIds) must be the dragged symbol ids, never a parent ANB/ORB. */
+export function onlyElementIds(linkedList: TreeNodeObj, ids: Iterable<string>): string[] {
+    const out: string[] = [];
+    for (const id of ids) {
+        if (isLadElement(linkedList[id]) && out.indexOf(id) === -1) {
+            out.push(id);
+        }
+    }
+    return out;
+}
 
 export type MoveType = 'OUT' | 'IN' | 'LINE';
 export type PaletteElementType =
@@ -100,6 +117,13 @@ export function ghostGridAtAssist(
     const cx = assist.x / basicLength;
     const cy = assist.y / basicLength;
     const size = assist.height / basicLength;
+    const midX = cx + assist.width / basicLength / 2;
+    if (assist.direction === 'down') {
+        return { gridX: midX - gw / 2, gridY: cy + size };
+    }
+    if (assist.direction === 'up') {
+        return { gridX: midX - gw / 2, gridY: cy - 1 };
+    }
     const gridY = cy + size / 2 - 0.4;
     if (assist.direction === 'left') {
         return { gridX: cx - gw, gridY };
@@ -122,7 +146,7 @@ export function filterAssistForAdd(
 ): MiniRectOpts[] {
     const addType = type === 'COIL' ? 'Coil' : type;
     if (addType === 'OB') {
-        return points;
+        return points.filter((p) => p.direction === 'down');
     }
     if (!isCoilLike(addType)) {
         return points;

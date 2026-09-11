@@ -12,8 +12,15 @@ import type {
     PositionDir,
 } from '@/app/lad/view/core/viewHost';
 import { bindCanvasPointerEvents } from '@/app/lad/view/interaction/mouseEvent';
+import {
+    commitCopy,
+    commitDelete,
+    commitPasteAt,
+    ensureHistory,
+    setPasteTarget,
+} from '@/app/lad/view/interaction/editHistory';
 import { selectedNodeById } from '@/app/lad/view/interaction/selection';
-import { buildAssistPoints, DragLineController, visibleConnectPoints } from '@/app/lad/view/interaction/wireDrag';
+import { buildAssistPoints, DragLineController, filterLineAssists, visibleConnectPoints } from '@/app/lad/view/interaction/wireDrag';
 import { getCenterView } from '@/app/lad/view/interaction/zoomPan';
 import { LadRenderer } from '@/app/lad/view/render/renderer';
 
@@ -54,6 +61,7 @@ export class CanvasView {
         this.rootId = rootId;
         this.host = hostInstance as LadViewHost;
         this.hostInstance = this.host;
+        ensureHistory(this.host);
         this.canvas = document.createElement('canvas');
         this.canvas.tabIndex = 0;
         this.canvas.style.display = 'block';
@@ -139,7 +147,7 @@ export class CanvasView {
             }
             this.renderer.rebuildFromHost(this.host);
         }
-        this.installConnectPoints();
+        this.refreshConnectPoints();
         this.paint();
     }
 
@@ -150,8 +158,20 @@ export class CanvasView {
 
     redrawFromHost(): void {
         this.renderer.rebuildFromHost(this.host);
-        this.installConnectPoints();
+        this.refreshConnectPoints();
         this.paint();
+    }
+
+    /** Keep LINE-filtered yellows while dragging a wire; otherwise show all slots */
+    private refreshConnectPoints(): void {
+        if (this.DragLine.active) {
+            const src = this.DragLine.getSource();
+            if (src) {
+                void this.beginConnectLine(src.id, src.pinSide, src.pinIndex);
+                return;
+            }
+        }
+        this.installConnectPoints();
     }
 
     paint(): void {
@@ -200,13 +220,13 @@ export class CanvasView {
     async applyNodedrop(
         moveType: 'OUT' | 'IN' | 'LINE',
         payload: { attrs: { id?: string; parentId: string; direction: PositionDir; pinIndex?: number; type?: string } },
-        extra: { type?: string; ids?: string[]; OBId?: string }
+        extra: { type?: string; ids?: string[]; OBId?: string; copy?: boolean }
     ): Promise<void> {
         if (!this.host.invokeCoreOnDrop) {
             return;
         }
         try {
-            const { commitElementMove, commitPaletteAdd, commitConnectLine } = await import('@/app/lad/view/interaction/commitDrop');
+            const { commitElementMove, commitElementCopy, commitPaletteAdd, commitConnectLine } = await import('@/app/lad/view/interaction/commitDrop');
             if (moveType === 'OUT') {
                 const type = extra.type ?? payload.attrs.type ?? 'NO';
                 const uuid = await commitPaletteAdd(this.host, payload.attrs, type);
@@ -220,7 +240,11 @@ export class CanvasView {
                     await commitConnectLine(this.host, line);
                 }
             } else if (extra.ids?.length) {
-                await commitElementMove(this.host, extra.ids, payload.attrs);
+                if (extra.copy) {
+                    await commitElementCopy(this.host, extra.ids, payload.attrs);
+                } else {
+                    await commitElementMove(this.host, extra.ids, payload.attrs);
+                }
             }
         } catch (err) {
             console.error('[LAD] 落点核心算法失败', err);
@@ -230,53 +254,29 @@ export class CanvasView {
     }
 
     /**
-     * Wire from an arrow: show only yellow slots where ifCanConnectOB is true.
+     * Wire from a yellow slot: keep only slots where ifCanConnectOB is true.
+     * Source may be the arrow or a contact/coil/box yellow; drop still calls connectOB.
      * Matches ladEvent beforedragLine → showAssistPoint.
      */
     async beginConnectLine(sourceId: string, sourceDir?: PositionDir, sourcePinIndex?: number): Promise<void> {
+        const source = this.host.data.linkedList[sourceId];
+        if (!source || source.blockType !== 'element') {
+            return;
+        }
+        const sourceSide: 'left' | 'right' = sourceDir === 'right' ? 'right' : 'left';
         const dirs: PositionDir[] = ['left', 'right'];
         try {
             const { ifCanConnectOB } = await import('@/app/lad/service/transformData');
-            const source = this.host.data.linkedList[sourceId];
-            const sourceIsOb = source?.type === 'OB';
-            this.showAssistPoint('LINE', 'OB', sourceId, dirs, (oSetData) => {
-                const result: MiniRectOpts[] = [];
-                for (const dir of dirs) {
-                    for (const item of oSetData[dir]) {
-                        if (item.parentId === sourceId) {
-                            continue;
-                        }
-                        const target = this.host.data.linkedList[item.parentId];
-                        if (!target) {
-                            continue;
-                        }
-                        const slotDir = dir === 'left' || dir === 'right' ? dir : null;
-                        if (!slotDir) {
-                            continue;
-                        }
-                        const ok = sourceIsOb
-                            ? ifCanConnectOB(
-                                { OBId: sourceId, targetId: item.parentId, pinIndex: item.pinIndex, direction: slotDir },
-                                this.host.data
-                            )
-                            : target.type === 'OB'
-                                && (sourceDir === 'left' || sourceDir === 'right')
-                                && ifCanConnectOB(
-                                    {
-                                        OBId: item.parentId,
-                                        targetId: sourceId,
-                                        pinIndex: sourcePinIndex,
-                                        direction: sourceDir,
-                                    },
-                                    this.host.data
-                                );
-                        if (ok) {
-                            result.push(item);
-                        }
-                    }
-                }
-                return result;
-            });
+            this.showAssistPoint('LINE', source.type === 'OB' ? 'OB' : 'TARGET', sourceId, dirs, (oSetData) =>
+                filterLineAssists(
+                    this.host.data.linkedList,
+                    sourceId,
+                    sourceSide,
+                    sourcePinIndex,
+                    oSetData,
+                    (obj) => ifCanConnectOB(obj, this.host.data)
+                )
+            );
         } catch (err) {
             console.error('[LAD] ifCanConnectOB 失败', err);
         }
@@ -299,6 +299,84 @@ export class CanvasView {
     syncSelection(): void {
         this.selectionIds = Array.from(this.renderer.overlay.selectedIds);
         this.renderer.overlay.selectedIds = new Set(this.selectionIds);
+    }
+
+    rememberPasteTarget(id?: string, direction?: PositionDir): void {
+        setPasteTarget(this.host, id, direction);
+    }
+
+    async applyDelete(ids?: string[]): Promise<void> {
+        const list = ids ?? onlySelected(this);
+        if (!list.length) {
+            return;
+        }
+        this.emit('nodedelete', list);
+        if (!this.host.invokeCoreOnDrop) {
+            return;
+        }
+        await commitDelete(this.host, list);
+        this.renderer.overlay.selectedIds.clear();
+        this.syncSelection();
+        this.installConnectPoints();
+        this.redrawFromHost();
+    }
+
+    applyCopy(ids?: string[]): void {
+        const list = ids ?? onlySelected(this);
+        if (!list.length) {
+            return;
+        }
+        this.emit('nodecopy', list);
+        if (!this.host.invokeCoreOnDrop) {
+            return;
+        }
+        commitCopy(this.host, list);
+    }
+
+    async applyPaste(): Promise<void> {
+        const history = ensureHistory(this.host);
+        const target = history.pasteTarget
+            ?? firstSelectedTarget(this);
+        if (!target || !history.clipboard) {
+            return;
+        }
+        this.emit('nodepaste', target);
+        if (!this.host.invokeCoreOnDrop) {
+            return;
+        }
+        const ok = await commitPasteAt(this.host, target);
+        if (ok) {
+            this.installConnectPoints();
+            this.redrawFromHost();
+        }
+    }
+
+    async applyUndo(): Promise<void> {
+        this.emit('undo');
+        if (!this.host.invokeCoreOnDrop) {
+            return;
+        }
+        const history = ensureHistory(this.host);
+        if (await history.back(this.host)) {
+            this.renderer.overlay.selectedIds.clear();
+            this.syncSelection();
+            this.installConnectPoints();
+            this.redrawFromHost();
+        }
+    }
+
+    async applyRedo(): Promise<void> {
+        this.emit('redo');
+        if (!this.host.invokeCoreOnDrop) {
+            return;
+        }
+        const history = ensureHistory(this.host);
+        if (await history.forward(this.host)) {
+            this.renderer.overlay.selectedIds.clear();
+            this.syncSelection();
+            this.installConnectPoints();
+            this.redrawFromHost();
+        }
     }
 
     showAssistPoint(
@@ -354,6 +432,22 @@ export class CanvasView {
         this.bus.clear();
         this.canvas.remove();
     }
+}
+
+function onlySelected(view: CanvasView): string[] {
+    return Array.from(view.renderer.overlay.selectedIds).filter((id) => {
+        const node = view.host.data.linkedList[id];
+        return !!node && node.blockType === 'element' && node.type !== 'END';
+    });
+}
+
+function firstSelectedTarget(view: CanvasView): { id: string; direction: 'left' | 'right' } | null {
+    const id = onlySelected(view)[0];
+    if (!id) {
+        return null;
+    }
+    const type = view.host.data.linkedList[id]?.type;
+    return { id, direction: type === 'OB' || type === 'Coil' ? 'left' : 'right' };
 }
 
 function resolveConnectLine(

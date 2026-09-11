@@ -113,6 +113,30 @@ export function idsInMarquee(
     return ids;
 }
 
+/** Tight hit on a yellow square (small pad). Used to start a wire without stealing symbol clicks. */
+export function pickAssistExact(
+    assists: MiniRectOpts[],
+    cssX: number,
+    cssY: number,
+    padPx: number
+): MiniRectOpts | null {
+    let best: MiniRectOpts | null = null;
+    let bestD = Infinity;
+    for (const a of assists) {
+        const inX = cssX >= a.x - padPx && cssX <= a.x + a.width + padPx;
+        const inY = cssY >= a.y - padPx && cssY <= a.y + a.height + padPx;
+        if (!inX || !inY) {
+            continue;
+        }
+        const d = Math.hypot(cssX - (a.x + a.width / 2), cssY - (a.y + a.height / 2));
+        if (d < bestD) {
+            best = a;
+            bestD = d;
+        }
+    }
+    return best;
+}
+
 /** Slot magnet: prefer the nearest left/right drop slot; pointer need not sit exactly on the small square */
 export function pickAssistNear(
     assists: MiniRectOpts[],

@@ -14,12 +14,16 @@ import { add, connectOB, setVarName } from './index';
 import { ElementType, FBParameter, TreeNode } from '../class/index';
 import { getStrHeight } from '@/app/lad/stubs/utility';
 import { blockTextNum } from '@/app/lad/view/core/config';
-import { MiniRectOpts, PositionDir } from '@/app/lad/view';
+import { PositionDir } from '@/app/lad/view';
+import { filterLineAssists } from '@/app/lad/view/interaction/wireDrag';
 import { ifCanConnectOB } from '@/app/lad/service/transformData';
 import { moveElements } from '@/app/lad/service/moveElements';
 import { changeFbType } from '@/app/lad/service/changeFbType';
 import { updateCanvas } from '@/app/lad/service/updateCanvas';
 import { getIDS } from '@/app/lad/view/actionComponent/eventBus';
+import { deleteArr } from '@/app/lad/service/delete';
+import { copy, paste } from '@/app/lad/service/paste';
+import { forwardOrBack } from '@/app/lad/service/forwardOrBack';
 export function mountedEvent(Lad: Lad) {
     if (!Lad.canvasView) {
         return;
@@ -161,23 +165,45 @@ export function mountedEvent(Lad: Lad) {
         return null;
     });
 
+    let clipboard: ReturnType<typeof copy> = null;
+    Lad.canvasView.on('nodedelete', (ids: string[]) => {
+        if (Array.isArray(ids) && ids.length) {
+            deleteArr(ids, Lad, true);
+        }
+    });
+    Lad.canvasView.on('nodecopy', (ids: string[]) => {
+        if (Array.isArray(ids) && ids.length) {
+            clipboard = copy(ids, Lad);
+        }
+    });
+    Lad.canvasView.on('nodepaste', (target: { id?: string; direction?: PositionDir }) => {
+        if (clipboard && target?.id && (target.direction === 'left' || target.direction === 'right')) {
+            paste(clipboard, target.id, target.direction, Lad, true);
+        }
+    });
+    Lad.canvasView.on('undo', () => {
+        forwardOrBack('back');
+    });
+    Lad.canvasView.on('redo', () => {
+        forwardOrBack('forward');
+    });
+
     // Wire-drag event
-    Lad.canvasView.on('beforedragLine', (OBId) => {
+    Lad.canvasView.on('beforedragLine', (sourceId: string) => {
         if (Lad.canvasView) {
+            const src = Lad.canvasView.DragLine.getSource();
+            const sourceDir = src?.pinSide === 'right' ? 'right' : 'left';
             const dirs: PositionDir[] = ['left', 'right'];
-            Lad.canvasView.showAssistPoint('LINE', 'OB', OBId, dirs, (oSetData) => {
-                const result: MiniRectOpts[] = [];
-                for (const dir of dirs) {
-                    oSetData[dir].forEach((item) => {
-                        if (OBId !== item.parentId) {
-                            if (ifCanConnectOB({ OBId: OBId, targetId: item.parentId, pinIndex: item.pinIndex, direction: dir })) {
-                                result.push(item);
-                            }
-                        }
-                    });
-                }
-                return result;
-            });
+            Lad.canvasView.showAssistPoint('LINE', Lad.data.linkedList[sourceId]?.type === 'OB' ? 'OB' : 'TARGET', sourceId, dirs, (oSetData) =>
+                filterLineAssists(
+                    Lad.data.linkedList,
+                    sourceId,
+                    sourceDir,
+                    src?.pinIndex,
+                    oSetData,
+                    (obj) => ifCanConnectOB(obj, Lad.data)
+                )
+            );
             dirs.length = 0;
         }
     });
