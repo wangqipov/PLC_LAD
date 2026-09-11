@@ -10,6 +10,34 @@ export function getCenterView(): HTMLElement | null {
     return document.getElementById('centerView');
 }
 
+/** Scroll #centerView so a linkedList node is inside the viewport (TIA keeps a new drop on screen). */
+export function scrollNodeIntoView(host: LadViewHost, id: string): void {
+    const node = host.data.linkedList[id];
+    const centerView = getCenterView();
+    if (!node?.location || !centerView) {
+        return;
+    }
+    const bl = host.basicLength;
+    const animate = host.ladData.animateDom;
+    const animateOut = host.ladData.animateOutDom;
+    const vDomY = (animate?.offsetTop ?? 0) + (animateOut?.offsetTop ?? 0);
+    const yPx = vDomY + node.location.y * bl;
+    const xPx = node.location.x * bl;
+    const margin = bl * 2;
+    const viewTop = centerView.scrollTop;
+    const viewLeft = centerView.scrollLeft;
+    const viewBottom = viewTop + centerView.clientHeight;
+    const viewRight = viewLeft + centerView.clientWidth;
+    const hPx = (node.height || 1) * bl;
+    const wPx = (node.width || 1) * bl;
+    if (yPx < viewTop + margin || yPx + hPx > viewBottom - margin) {
+        centerView.scrollTop = Math.max(0, yPx - centerView.clientHeight / 3);
+    }
+    if (xPx < viewLeft + margin || xPx + wPx > viewRight - margin) {
+        centerView.scrollLeft = Math.max(0, xPx - bl * 3);
+    }
+}
+
 /**
  * TODO: call project API setBaseLength(next, lad)
  * Only computes the next basicLength; CanvasView writes it back to the host and redraws.

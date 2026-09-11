@@ -4,6 +4,47 @@ import type { HitTarget, LadViewHost, MiniRectOpts, PositionDir } from '@/app/la
 import { boxPinY, elementDrawX, isBoxInstruction, orthogonalPreview } from '@/app/lad/view/render/drawSymbols';
 import { cssToWorld, worldToViewerGrid } from '@/app/lad/view/interaction/zoomPan';
 
+function isFbFu(type?: string): boolean {
+    return type === 'FB' || type === 'FU';
+}
+
+/** ANB whose last child is an open branch: that arrow is the connectOB source for the whole rail. */
+export function findBranchOpenId(linkedList: TreeNodeObj, id: string): string | undefined {
+    let current: string | undefined = id;
+    while (current) {
+        const node = linkedList[current];
+        if (!node) {
+            return undefined;
+        }
+        if (node.type === 'OB') {
+            return current;
+        }
+        const parentId = node.parent;
+        if (!parentId) {
+            return undefined;
+        }
+        const parent = linkedList[parentId];
+        const children = parent?.blockType === 'ANB' ? parent.children : undefined;
+        if (children?.length) {
+            const lastId = children[children.length - 1];
+            if (linkedList[lastId]?.type === 'OB') {
+                return lastId;
+            }
+        }
+        current = parentId;
+    }
+    return undefined;
+}
+
+/** connectOB FB pin: not EN, BOOL, unused. Matches checkRequirement / pinIndex !== 0. */
+export function fbLeftPinConnectable(node: { type?: string; left?: { dataType?: string; connectId?: string }[] }, pinIndex?: number): boolean {
+    if (!pinIndex || !isFbFu(node.type) || !node.left) {
+        return false;
+    }
+    const pin = node.left[pinIndex];
+    return !!pin && pin.dataType === 'BOOL' && pin.connectId === undefined;
+}
+
 export interface WireDragState {
     fromId: string;
     fromPin: number;
@@ -38,7 +79,8 @@ export function filterLineAssists(
     if (!source || source.blockType !== 'element') {
         return [];
     }
-    const fromOb = source.type === 'OB';
+    const fromOpen = findBranchOpenId(linkedList, sourceId);
+    const sourceFb = isFbFu(source.type as string | undefined);
     const result: MiniRectOpts[] = [];
     for (const dir of ['left', 'right'] as const) {
         for (const item of grouped[dir]) {
@@ -46,20 +88,47 @@ export function filterLineAssists(
             if (!otherId || otherId === sourceId) {
                 continue;
             }
+            const other = linkedList[otherId];
+            if (!other) {
+                continue;
+            }
+            const otherFb = isFbFu(other.type as string | undefined);
+            const otherOpen = findBranchOpenId(linkedList, otherId);
             try {
-                const ok = fromOb
-                    ? canConnect({
-                        OBId: sourceId,
+                let ok = false;
+                if (sourceFb) {
+                    if (sourceDir === 'left' && fbLeftPinConnectable(source, sourcePinIndex) && otherOpen) {
+                        ok = canConnect({
+                            OBId: otherOpen,
+                            targetId: sourceId,
+                            direction: 'left',
+                            pinIndex: sourcePinIndex,
+                        });
+                    }
+                } else if (otherFb) {
+                    if (fromOpen && dir === 'left' && fbLeftPinConnectable(other, item.pinIndex)) {
+                        ok = canConnect({
+                            OBId: fromOpen,
+                            targetId: otherId,
+                            direction: 'left',
+                            pinIndex: item.pinIndex,
+                        });
+                    }
+                } else if (fromOpen) {
+                    ok = canConnect({
+                        OBId: fromOpen,
                         targetId: otherId,
                         direction: dir,
                         pinIndex: item.pinIndex,
-                    })
-                    : linkedList[otherId]?.type === 'OB' && canConnect({
-                        OBId: otherId,
+                    });
+                } else if (otherOpen) {
+                    ok = canConnect({
+                        OBId: otherOpen,
                         targetId: sourceId,
                         direction: sourceDir,
                         pinIndex: sourcePinIndex,
                     });
+                }
                 if (ok) {
                     result.push(item);
                 }
@@ -69,6 +138,49 @@ export function filterLineAssists(
         }
     }
     return result;
+}
+
+/** Map a yellow-to-yellow drop to connectOB args. FB left pin 0 (EN) is not a connectOB target. */
+export function wireDropToConnectArgs(
+    linkedList: TreeNodeObj,
+    fromId: string,
+    fromSide: 'left' | 'right',
+    fromPinIndex: number,
+    assist: MiniRectOpts
+): { OBId: string; targetId: string; direction: 'left' | 'right'; pinIndex?: number } | null {
+    const toId = assist.parentId || assist.id;
+    if (!fromId || !toId || fromId === toId) {
+        return null;
+    }
+    const from = linkedList[fromId];
+    const to = linkedList[toId];
+    if (!from || !to) {
+        return null;
+    }
+    const slotDir: 'left' | 'right' | null = assist.direction === 'right' ? 'right' : assist.direction === 'left' ? 'left' : null;
+    if (!slotDir) {
+        return null;
+    }
+    const fromOpen = findBranchOpenId(linkedList, fromId);
+    const toOpen = findBranchOpenId(linkedList, toId);
+    const fromFb = isFbFu(from.type as string | undefined);
+    const toFb = isFbFu(to.type as string | undefined);
+    if (fromFb || toFb) {
+        if (fromFb && toOpen && fromSide === 'left' && fbLeftPinConnectable(from, fromPinIndex)) {
+            return { OBId: toOpen, targetId: fromId, direction: 'left', pinIndex: fromPinIndex };
+        }
+        if (toFb && fromOpen && slotDir === 'left' && fbLeftPinConnectable(to, assist.pinIndex)) {
+            return { OBId: fromOpen, targetId: toId, direction: 'left', pinIndex: assist.pinIndex };
+        }
+        return null;
+    }
+    if (from.type === 'OB' && to.type !== 'OB') {
+        return { OBId: fromId, targetId: toId, direction: slotDir, pinIndex: assist.pinIndex };
+    }
+    if (from.type !== 'OB' && to.type === 'OB') {
+        return { OBId: toId, targetId: fromId, direction: fromSide, pinIndex: fromPinIndex };
+    }
+    return null;
 }
 
 /**

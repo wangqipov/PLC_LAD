@@ -76,17 +76,20 @@ function demoFbPins(): { left: FBParameter[]; right: FBParameter[]; inputNumber:
  * Star-delta demo network: IEC series ANB / parallel ORB tree.
  * Coordinates are not handwritten; calculateLocation / calculateLines fill them.
  *
- *   rail — I0.0 — I0.1 —+—— ▶ (default top-right OB; add deletes it after dropping a coil)
- *                       +—— FB (100 pins) —— Q0.1
- *                       +—— Q0.2
+ * Contacts sit on the open-branch rail so connectOB can wire the arrow to an FB left pin
+ * (checkRequirement: the FB's ancestor chain must be the first child of every ANB).
+ *
+ *   rail —+—— I0.0 — I0.1 — ▶
+ *         +—— FB (100 pins) —— Q0.1
+ *         +—— Q0.2
  */
 export function createSampleNetwork(): Data {
     const linkedList: TreeNodeObj = {
-        root: block('ANB', ['nStart', 'nStop', 'nOrb', 'nEnd']),
-        nStart: element({ type: 'NO', varName: 'I0.0', varDesc: '起动按钮', parent: 'root' }),
-        nStop: element({ type: 'NC', varName: 'I0.1', varDesc: '停止按钮', parent: 'root' }),
+        root: block('ANB', ['nOrb', 'nEnd']),
         nOrb: block('ORB', ['nOpenAnb', 'nTonAnb', 'nDelta'], 'root'),
-        nOpenAnb: block('ANB', ['nOpen'], 'nOrb'),
+        nOpenAnb: block('ANB', ['nStart', 'nStop', 'nOpen'], 'nOrb'),
+        nStart: element({ type: 'NO', varName: 'I0.0', varDesc: '起动按钮', parent: 'nOpenAnb' }),
+        nStop: element({ type: 'NC', varName: 'I0.1', varDesc: '停止按钮', parent: 'nOpenAnb' }),
         nOpen: element({ type: 'OB', parent: 'nOpenAnb' }),
         nTonAnb: block('ANB', ['nTon', 'nStar'], 'nOrb'),
         nTon: element({

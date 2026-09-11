@@ -1,7 +1,7 @@
 import type { TreeNode } from '@/app/lad/class/index';
 import { ASSIST_SIZE, PIN_HIT_RADIUS, WIRE_HIT_HALF } from '@/app/lad/view/core/config';
 import type { LineLocation } from '@/app/lad/view/core/viewHost';
-import { elementDrawX } from '@/app/lad/view/render/drawSymbols';
+import { elementDrawX, isBoxInstruction } from '@/app/lad/view/render/drawSymbols';
 
 /**
  * Path2D for elements / pins / wires, used with ctx.isPointInPath for picking.
@@ -11,7 +11,43 @@ import { elementDrawX } from '@/app/lad/view/render/drawSymbols';
 const SELECT_PAD_PX = 4;
 const LABEL_PAD_PX = 16;
 
-/** Selection / click hot zone: symbol + label, inset so yellow drop slots stay outside */
+function pinYPx(treeNode: TreeNode, basicLength: number): number {
+    return (treeNode.pinY ?? treeNode.location.y + (treeNode.pinOffsetY ?? 0.4)) * basicLength;
+}
+
+/**
+ * Contact / coil occupy a layout cell (`height`) that parallel rows stretch to the tallest
+ * sibling (the FB). The ink sits on pinY — selection must hug that, not the cell.
+ */
+function symbolFrameSize(treeNode: TreeNode, basicLength: number): { y: number; h: number } {
+    if (treeNode.type === 'OB') {
+        const py = pinYPx(treeNode, basicLength);
+        const h = basicLength * 0.7;
+        return { y: py - h / 2, h };
+    }
+    if (isBoxInstruction(treeNode.type as string)) {
+        const y = treeNode.location.y * basicLength - LABEL_PAD_PX - SELECT_PAD_PX;
+        const h = Math.max(treeNode.height, 0.8) * basicLength + LABEL_PAD_PX + SELECT_PAD_PX * 2;
+        return { y, h };
+    }
+    const py = pinYPx(treeNode, basicLength);
+    const body = basicLength * 0.85;
+    return {
+        y: py - body / 2 - LABEL_PAD_PX,
+        h: body + LABEL_PAD_PX + SELECT_PAD_PX,
+    };
+}
+
+/** Visual selection frame: wraps the symbol + label, not inset into the body */
+export function elementFrameBox(treeNode: TreeNode, basicLength: number): { x: number; y: number; w: number; h: number } {
+    const box = elementDrawX(treeNode);
+    const w = Math.max(box.w, 0.8) * basicLength + SELECT_PAD_PX * 2;
+    const x = box.x * basicLength - SELECT_PAD_PX;
+    const { y, h } = symbolFrameSize(treeNode, basicLength);
+    return { x, y, w, h };
+}
+
+/** Click hot zone: symbol + label, inset so yellow drop slots stay outside */
 export function elementSelectBox(treeNode: TreeNode, basicLength: number): { x: number; y: number; w: number; h: number } {
     const box = elementDrawX(treeNode);
     const assistPx = ASSIST_SIZE * basicLength + 2;
@@ -23,14 +59,11 @@ export function elementSelectBox(treeNode: TreeNode, basicLength: number): { x: 
         w = basicLength * 0.45;
         x = box.x * basicLength + (box.w * basicLength - w) / 2;
     }
-    if (treeNode.type === 'OB') {
-        const py = (treeNode.pinY ?? treeNode.location.y + (treeNode.pinOffsetY ?? 0.4)) * basicLength;
-        const h = basicLength * 0.7;
-        return { x, y: py - h / 2, w, h };
+    const { y, h } = symbolFrameSize(treeNode, basicLength);
+    if (treeNode.type === 'OB' || isBoxInstruction(treeNode.type as string)) {
+        return { x, y, w, h };
     }
-    const y = treeNode.location.y * basicLength - LABEL_PAD_PX - SELECT_PAD_PX;
-    const h = Math.max(treeNode.height, 0.8) * basicLength + LABEL_PAD_PX + SELECT_PAD_PX * 2 - assistPx;
-    return { x, y, w, h };
+    return { x, y, w, h: Math.max(basicLength * 0.5, h - assistPx) };
 }
 
 export function elementBodyPath(treeNode: TreeNode, basicLength: number, originX = 0, originY = 0): Path2D {

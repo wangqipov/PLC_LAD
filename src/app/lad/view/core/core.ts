@@ -15,13 +15,14 @@ import { bindCanvasPointerEvents } from '@/app/lad/view/interaction/mouseEvent';
 import {
     commitCopy,
     commitDelete,
+    commitDeleteLine,
     commitPasteAt,
     ensureHistory,
     setPasteTarget,
 } from '@/app/lad/view/interaction/editHistory';
 import { selectedNodeById } from '@/app/lad/view/interaction/selection';
 import { buildAssistPoints, DragLineController, filterLineAssists, visibleConnectPoints } from '@/app/lad/view/interaction/wireDrag';
-import { getCenterView } from '@/app/lad/view/interaction/zoomPan';
+import { getCenterView, scrollNodeIntoView } from '@/app/lad/view/interaction/zoomPan';
 import { LadRenderer } from '@/app/lad/view/render/renderer';
 
 /**
@@ -231,6 +232,7 @@ export class CanvasView {
                 const type = extra.type ?? payload.attrs.type ?? 'NO';
                 const uuid = await commitPaletteAdd(this.host, payload.attrs, type);
                 if (uuid) {
+                    scrollNodeIntoView(this.host, uuid);
                     selectedNodeById(this.renderer, uuid, false);
                     this.syncSelection();
                 }
@@ -306,15 +308,26 @@ export class CanvasView {
     }
 
     async applyDelete(ids?: string[]): Promise<void> {
+        const lineIds = selectedLineIds(this);
         const list = ids ?? onlySelected(this);
-        if (!list.length) {
+        if (!lineIds.length && !list.length) {
             return;
         }
-        this.emit('nodedelete', list);
+        if (lineIds.length) {
+            this.emit('linedelete', lineIds);
+            if (this.host.invokeCoreOnDrop) {
+                await commitDeleteLine(this.host, lineIds[0]);
+            }
+        }
+        if (list.length) {
+            this.emit('nodedelete', list);
+            if (this.host.invokeCoreOnDrop) {
+                await commitDelete(this.host, list);
+            }
+        }
         if (!this.host.invokeCoreOnDrop) {
             return;
         }
-        await commitDelete(this.host, list);
         this.renderer.overlay.selectedIds.clear();
         this.syncSelection();
         this.installConnectPoints();
@@ -432,6 +445,10 @@ export class CanvasView {
         this.bus.clear();
         this.canvas.remove();
     }
+}
+
+function selectedLineIds(view: CanvasView): string[] {
+    return Array.from(view.renderer.overlay.selectedIds).filter((id) => !!view.host.data.lineMap[id]);
 }
 
 function onlySelected(view: CanvasView): string[] {

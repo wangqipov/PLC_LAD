@@ -3,7 +3,7 @@ import type { LadViewHost } from '@/app/lad/view/core/viewHost';
 import type { DragLineController } from '@/app/lad/view/interaction/wireDrag';
 import type { Editing, FbEditing } from '@/app/lad/view/core/textEditor';
 import { PALETTE_MIME, dropEventAttrs, elementMovePreview, palettePreviewAt, ghostGridAtAssist, filterAssistForAdd, isLadElement, onlyElementIds } from '@/app/lad/view/interaction/dragDrop';
-import { buildAssistPoints } from '@/app/lad/view/interaction/wireDrag';
+import { buildAssistPoints, wireDropToConnectArgs } from '@/app/lad/view/interaction/wireDrag';
 import { idsInMarquee, hitElementByBBox, hitTest, pickAssistExact, pickAssistNear } from '@/app/lad/view/interaction/hitTest';
 import { selectClick, selectMarquee } from '@/app/lad/view/interaction/selection';
 import { nextBasicLength, panBy, zoomAtCursor } from '@/app/lad/view/interaction/zoomPan';
@@ -140,6 +140,19 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
             return;
         }
 
+        // FB pin (and contact pin): start a wire; drop still calls connectOB.
+        if (
+            hit?.kind === 'pin'
+            && (hit.pinSide === 'left' || hit.pinSide === 'right')
+            && isLadElement(view.host.data.linkedList[hit.id])
+        ) {
+            startWireFrom(view, hit.id, hit.pinSide, hit.pinIndex);
+            gesture = { name: 'wire', startX: x, startY: y };
+            capture(e);
+            paint();
+            return;
+        }
+
         // Click inside a non-OB symbol selects / moves; skip when the pointer is on a yellow slot.
         if (boxHit && !onOb(boxHit.id) && isLadElement(view.host.data.linkedList[boxHit.id])) {
             selectClick(view.renderer, boxHit.id, e.ctrlKey);
@@ -166,6 +179,15 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
             startWireFrom(view, obId, pinSide, hit?.pinIndex);
             gesture = { name: 'wire', startX: x, startY: y };
             capture(e);
+            paint();
+            return;
+        }
+
+        if (hit?.kind === 'wire' && view.host.data.lineMap[hit.id]) {
+            selectClick(view.renderer, hit.id, e.ctrlKey);
+            view.syncSelection();
+            view.emit('lineclick', { attrs: { id: hit.id } });
+            gesture = { name: 'idle' };
             paint();
             return;
         }
@@ -219,7 +241,7 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
         }
         if (gesture.name === 'wire') {
             view.renderer.overlay.wirePoints = view.DragLine.move(view.host, x, y) ?? undefined;
-            view.renderer.overlay.hotAssist = resolveAssist(view, x, y);
+            view.renderer.overlay.hotAssist = resolveLineAssist(view, x, y);
             canvas.style.cursor = view.renderer.overlay.hotAssist ? 'copy' : 'crosshair';
             paint();
             return;
@@ -243,9 +265,11 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
                             ? 'copy'
                             : hit?.kind === 'pin'
                                 ? 'crosshair'
-                                : boxHit
+                                : hit?.kind === 'wire'
                                     ? 'pointer'
-                                    : 'grab';
+                                    : boxHit
+                                        ? 'pointer'
+                                        : 'grab';
             if (hoverId !== view.renderer.overlay.hoverId || (wireAssist ?? assist) !== view.renderer.overlay.hotAssist || canvas.style.cursor !== nextCursor) {
                 view.renderer.overlay.hoverId = hoverId;
                 view.renderer.overlay.hotAssist = wireAssist ?? (!boxHit ? assist : null);
@@ -309,7 +333,7 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
         }
         if (gesture.name === 'wire') {
             const click = Math.hypot(x - gesture.startX, y - gesture.startY) < 4;
-            const assist = resolveAssist(view, x, y);
+            const assist = resolveLineAssist(view, x, y);
             const from = view.DragLine.end();
             view.renderer.overlay.wirePoints = undefined;
             view.renderer.overlay.hotAssist = null;
@@ -379,7 +403,11 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
         paint();
     }, { signal });
 
-    canvas.addEventListener('dragleave', () => {
+    canvas.addEventListener('dragleave', (e) => {
+        const next = e.relatedTarget as Node | null;
+        if (next && (next === canvas || canvas.contains(next))) {
+            return;
+        }
         view.renderer.overlay.ghost = undefined;
         view.renderer.overlay.hotAssist = null;
         view.installConnectPoints();
@@ -390,7 +418,8 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
         e.preventDefault();
         const type = e.dataTransfer?.getData(PALETTE_MIME) || e.dataTransfer?.getData('text/plain') || view.paletteType || 'NO';
         const { x, y } = cssPos(e);
-        const assist = resolveAssist(view, x, y);
+        applyAddSlotFilter(view, type);
+        const assist = resolveAssist(view, x, y) ?? view.renderer.overlay.hotAssist;
         const payload = dropEventAttrs(assist, view.rootId);
         (payload.attrs as { type?: string }).type = type;
         view.emit('nodedrop', payload, { moveType: 'OUT', data: { type } });
@@ -545,6 +574,11 @@ function resolveWireAssist(view: CanvasPointerHost, x: number, y: number): MiniR
     return pickAssistExact(view.renderer.overlay.assistPoints, x, y, ASSIST_WIRE_HIT * view.host.basicLength);
 }
 
+/** FB pins are 0.6 grid apart; prefer the exact pin, then the wider magnet for sparse contact yellows. */
+function resolveLineAssist(view: CanvasPointerHost, x: number, y: number): MiniRectOpts | null {
+    return resolveWireAssist(view, x, y) ?? resolveAssist(view, x, y);
+}
+
 function elementType(view: CanvasPointerHost, id?: string): string | undefined {
     if (!id) {
         return undefined;
@@ -599,21 +633,5 @@ function connectLineDrop(
     fromPinIndex: number,
     assist: MiniRectOpts
 ): { OBId: string; targetId: string; direction: 'left' | 'right'; pinIndex?: number } | null {
-    const toId = assist.parentId || assist.id;
-    if (!fromId || !toId || fromId === toId) {
-        return null;
-    }
-    const fromType = elementType(view, fromId);
-    const toType = elementType(view, toId);
-    const slotDir = assist.direction === 'right' ? 'right' : assist.direction === 'left' ? 'left' : null;
-    if (!slotDir) {
-        return null;
-    }
-    if (fromType === 'OB' && toType !== 'OB') {
-        return { OBId: fromId, targetId: toId, direction: slotDir, pinIndex: assist.pinIndex };
-    }
-    if (fromType !== 'OB' && toType === 'OB') {
-        return { OBId: toId, targetId: fromId, direction: fromSide, pinIndex: fromPinIndex };
-    }
-    return null;
+    return wireDropToConnectArgs(view.host.data.linkedList, fromId, fromSide, fromPinIndex, assist);
 }

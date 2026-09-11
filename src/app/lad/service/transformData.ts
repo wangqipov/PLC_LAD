@@ -767,7 +767,7 @@ const ifTargetInCorrectSite = (pinIndex: number, left: FBParameter[], linkedList
  * Check whether connection is allowed; if so, connect and generate data
  */
 const checkAndConnectOB = (obj: COBobj, linkedList: TreeNodeObj, OBpid: string, left: FBParameter[], targetArr: string[], differenceValue: number, target: TreeNode, targetIndex: number, c: string[], OBArr: string[], OBindex: number, rootId: string): boolean => {
-    const { OBid, targetId } = obj;
+    const { OBId: OBid, targetId } = obj;
     const pinIndex = obj.pinIndex as number;
     const OBparent = linkedList[OBpid];
     const grandId = OBparent.parent as string;
@@ -801,8 +801,6 @@ const checkAndConnectOB = (obj: COBobj, linkedList: TreeNodeObj, OBpid: string, 
                 left[pinIndex].connectId = OBpid;
                 OBpc.splice(-1);
             }
-            delete left[pinIndex].varName;
-            left[pinIndex].varNameHeight = 0.4;
             delete linkedList[OBid];
         };
         // OB is inside FBL

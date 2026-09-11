@@ -1,7 +1,7 @@
 import type { ElementType } from '@/app/lad/class/index';
 import type Lad from '@/app/lad/index';
 import type { LadViewHost, PositionDir } from '@/app/lad/view/core/viewHost';
-import { isBoxInstruction } from '@/app/lad/view/render/drawSymbols';
+import { isBoxInstruction, isContact } from '@/app/lad/view/render/drawSymbols';
 import { isCoilLike, isLadElement, onlyElementIds } from '@/app/lad/view/interaction/dragDrop';
 import {
     commitPasteAt,
@@ -42,9 +42,6 @@ export async function commitPaletteAdd(host: LadViewHost, attrs: DropAttrs, type
         const box = isBoxInstruction(type);
         const addType = type === 'COIL' ? 'Coil' : type;
         const direction = addType === 'OB' ? 'down' : attrs.direction;
-        if (addType === 'OB' && attrs.direction !== 'down') {
-            return null;
-        }
         if (isCoilLike(addType) && (target.type !== 'OB' || direction !== 'left')) {
             return null;
         }
@@ -56,7 +53,29 @@ export async function commitPaletteAdd(host: LadViewHost, attrs: DropAttrs, type
             width: box ? 4 : 1,
             height: box ? 3 : 1,
         };
-        const uuid = add(addObj, host.data) as string | null;
+        // FB pin connectOB requires the contact to sit on an ANB that ends with an open branch.
+        const fbPin = isBoxInstruction(String(target.type))
+            && direction === 'left'
+            && !!attrs.pinIndex
+            && isContact(addType);
+        let uuid: string | null;
+        if (fbPin) {
+            const obId = add({ type: 'OB', id: targetId, direction: 'down' }, host.data) as string | null;
+            if (!obId) {
+                return null;
+            }
+            uuid = add({ type: addType as ElementType, id: obId, direction: 'left', width: 1, height: 1 }, host.data) as string | null;
+            if (!uuid) {
+                return null;
+            }
+            const { connectOB, ifCanConnectOB } = await import('@/app/lad/service/transformData');
+            const line = { OBId: obId, targetId, direction: 'left' as const, pinIndex: attrs.pinIndex };
+            if (ifCanConnectOB(line, host.data)) {
+                connectOB(line, host.data);
+            }
+        } else {
+            uuid = add(addObj, host.data) as string | null;
+        }
         if (!uuid) {
             return null;
         }
@@ -121,8 +140,7 @@ export async function commitElementCopy(host: LadViewHost, ids: string[], attrs:
 }
 
 /**
- * Arrow ↔ yellow-slot wire: transformData.connectOB mutates the tree, then updateCanvas.
- * Args match ladEvent nodedrop(LINE): { OBId, targetId, pinIndex, direction }.
+ * Arrow ↔ yellow-slot wire: transformData.connectOB then updateCanvas.
  */
 export async function commitConnectLine(
     host: LadViewHost,
@@ -163,6 +181,8 @@ export async function runUpdateCanvas(host: LadViewHost): Promise<void> {
     ensureLayoutFields(host);
     const { updateCanvas } = await import('@/app/lad/service/updateCanvas');
     updateCanvas({ _this: host as unknown as Lad });
+    const view = host.canvasView as { redrawFromHost?: () => void } | undefined;
+    view?.redrawFromHost?.();
 }
 
 function ensureLayoutFields(host: LadViewHost): void {

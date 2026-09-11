@@ -975,21 +975,14 @@ function setCoordinates(_this: Lad, id: string) {
                     };
                 } else {
                     const getLastElement = (): TreeNode | undefined => {
+                        // FBL is out of flow (comment above). Do not place the next
+                        // parallel row from FBL's padded height or the gap under FB grows.
                         for (let i = index - 1; i > -1; i--) {
-                            const obj = linkedList[(parentNode.children as string[])[i]];
-                            if (obj.blockType === 'FBL') {
-                                if (i > 0) {
-                                    const obj1 = linkedList[(parentNode.children as string[])[i - 1]];
-
-                                    if ((obj1.location.y + obj1.height) < (obj.location.y + obj.height)) {
-                                        return obj;
-                                    } else {
-                                        return obj1;
-                                    }
-                                }
-                            } else {
-                                return obj;
+                            const prev = linkedList[(parentNode.children as string[])[i]];
+                            if (prev.blockType === 'FBL') {
+                                continue;
                             }
+                            return prev;
                         }
                         return undefined;
                     };
@@ -998,6 +991,11 @@ function setCoordinates(_this: Lad, id: string) {
                         obj.location = {
                             x: parentNode.location.x,
                             y: lastNode.location.y + margin_vertical + lastNode.height// Previous element y plus height
+                        };
+                    } else {
+                        obj.location = {
+                            x: parentNode.location.x,
+                            y: parentNode.location.y
                         };
                     }
 
@@ -1427,15 +1425,17 @@ class InitHeightClass {
                 initHeight(_this, c[i]);
                 const obji = linkedList[c[i]];
                 if (obji.blockType === 'FBL') {
+                    // FBL is out of flow: only expand ORB if the pin-branch extends below.
                     const height1 = (obji.FBLOffsetY as number) + obji.height;
                     if (height1 > height) {
                         height = height1;
                     }
                 } else {
+                    if (i !== 0) {
+                        height += margin_vertical;
+                    }
                     height += obji.height;
                 }
-
-                if (i !== 0) { height += margin_vertical; }
             }
             if (height > obj.height) {
                 obj.originalHeight = obj.height = height;
@@ -1462,25 +1462,29 @@ class InitHeightClass {
          * @returns
          */
         const getleft10offset = (FBLid: string, FBId: string) => {
-            const FBLArr: string[] = getAncestorArray(linkedList, FBLid);
+            void FBLid;
+            // Same FB ancestor walk as initWidth FBL (not FBLArr: objLast would be the FBL and ifFBFU never fires).
             const FBArr: string[] = getAncestorArray(linkedList, FBId);
-            const rootIndex = FBLArr.indexOf(pid);// Index of FBL's parent in the ancestor list (nearest common ancestor)
+            const rootIndex = FBArr.indexOf(pid);// Index of FBL's parent in the ancestor list (nearest common ancestor)
             const arr: { beforeHeight: number; baseheight: number; maxheight: number }[] = [];
+            if (rootIndex < 0) {
+                return { FBLYheight: 0, FBheight: 0 };
+            }
 
             // Heights of blocks on the FB ancestor path
-            for (let i = rootIndex; i < FBLArr.length - 1; i++) {
-                const currentid = FBLArr[i];
+            for (let i = rootIndex; i < FBArr.length - 1; i++) {
+                const currentid = FBArr[i];
                 const obj = linkedList[currentid];
                 const blockType = obj.blockType;
                 const c = obj.children as string[];
                 /**
                  * FB-path node
                  */
-                const objLast = linkedList[FBLArr[i + 1]];
+                const objLast = linkedList[FBArr[i + 1]];
                 /**
                  * Index of the FB-path child among this node's children
                  */
-                const indexLast = c.indexOf(FBLArr[i + 1]);
+                const indexLast = c.indexOf(FBArr[i + 1]);
                 /**
                  * Depth of this FB-path level from the nearest common ancestor
                  */
@@ -1587,7 +1591,7 @@ class InitHeightClass {
                 }
             }
 
-            res.FBheight = arr[arr.length - 1].baseheight;
+            res.FBheight = arr.length ? arr[arr.length - 1].baseheight : 0;
             return res;
         };
         if (!setLonger) {
@@ -1635,7 +1639,7 @@ class InitHeightClass {
 
                 obj.FBLOffsetY = res.FBLYheight;
                 // Y from FBL to FB's first pin (0.5 is the first pin's offset from the top)
-                const offset = obj.FBLOffsetY + 0.5 - res.FBheight - (fb.pinOffsetY as number);
+                let offset = obj.FBLOffsetY + 0.5 - res.FBheight - (fb.pinOffsetY as number);
 
                 for (let i = 0; i < c.length; i++) {
                     initHeight(_this, c[i]);
@@ -1651,7 +1655,13 @@ class InitHeightClass {
                         // Extra offset of the FBL pin vs the FB pin
                         const offsetD = offsetPin0 - left[pinIndex].pinOffsetFirstPin;
 
-                        if (offsetPin0 > left[pinIndex].pinOffsetFirstPin) {
+                        if (i === 0) {
+                            // First branch: move FBL (out of flow). Stretching height here
+                            // is treated as in-flow and opens a large gap under the FB.
+                            const dy = left[pinIndex].pinOffsetFirstPin - offsetPin0;
+                            obj.FBLOffsetY += dy;
+                            offset += dy;
+                        } else if (offsetPin0 > left[pinIndex].pinOffsetFirstPin) {
                             for (let j = pinIndex; j < left.length; j++) {
                                 left[j].pinOffsetFirstPin += offsetD;
                             }
@@ -1660,19 +1670,24 @@ class InitHeightClass {
                             initPinOffsetY(_this, c[i], (linkedList[c[i]].pinOffsetY as number) + (left[pinIndex].pinOffsetFirstPin - offsetPin0));
                         }
                     }
-                    // Init pinOffsetFirstPin using FB's top-left first pin as origin
+                }
+                // Sum once after pin-align. initPinOffsetY may re-enter initHeight(root)
+                // and the else-pass would double obj.height if we accumulate in the loop.
+                let fblH = 0;
+                for (let i = 0; i < c.length; i++) {
                     if (linkedList[c[i]].blockType === 'FBL') {
                         const height1 = (linkedList[c[i]].FBLOffsetY as number) + linkedList[c[i]].height;
-                        if (height1 > obj.height) {
-                            obj.height = height1;
+                        if (height1 > fblH) {
+                            fblH = height1;
                         }
                     } else {
-                        (obj.height as number) += linkedList[c[i]].height;
+                        fblH += linkedList[c[i]].height;
                     }
                     if (i !== 0) {
-                        (obj.height as number) += margin_vertical;
+                        fblH += margin_vertical;
                     }
                 }
+                obj.height = fblH;
                 obj.originalHeight = obj.height;
                 // Recalc overall height after FBL stretches FB
                 const fboriginalheight = getFBOriginalHeight(fb);
@@ -1688,10 +1703,8 @@ class InitHeightClass {
                     initHeight(_this, _this.data.rootId);
                 }
             } else {
-                const res = getleft10offset(id, obj.rightConnectedId as string);
-
-                obj.FBLOffsetY = res.FBLYheight;
-                // Second height pass: sum only
+                // Keep FBLOffsetY from the first pass (includes first-branch alignment).
+                obj.height = 0;
                 for (let i = 0; i < c.length; i++) {
                     const ciId = c[i];
                     const ciObj = linkedList[ciId];
@@ -2251,7 +2264,10 @@ function ORBandFBLLine(_this: Lad, id: string, ifUseOldId: boolean) {
         const node = linkedList[id];
 
         function get_lastItem(node: TreeNode, dir: 'left' | 'right'): TreeNode | undefined {
-            const children = node.children as string[];
+            const children = node.children as string[] | undefined;
+            if (!children) {
+                return undefined;
+            }
             const l = children.length;
             let lastItem = undefined;
             if (dir === 'right') {
@@ -2324,7 +2340,10 @@ function ORBandFBLLine(_this: Lad, id: string, ifUseOldId: boolean) {
         const node = linkedList[id];
 
         function get_firstItem(node: TreeNode, dir: 'right'): TreeNode | undefined {
-            const children = node.children as string[];
+            const children = node.children as string[] | undefined;
+            if (!children) {
+                return undefined;
+            }
             const l = children.length;
             let lastItem = undefined;
             if (dir === 'right') {

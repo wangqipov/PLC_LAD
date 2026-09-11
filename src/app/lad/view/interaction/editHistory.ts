@@ -104,6 +104,23 @@ export function setPasteTarget(host: LadViewHost, id: string | undefined, direct
     ensureHistory(host).pasteTarget = { id, direction };
 }
 
+/** Clicked wire: service/delete.deleteLine (opens a parallel with an arrow). */
+export async function commitDeleteLine(host: LadViewHost, lineId: string): Promise<boolean> {
+    if (!lineId || !host.data.lineMap[lineId]) {
+        return false;
+    }
+    try {
+        const { deleteLine } = await import('@/app/lad/service/delete');
+        deleteLine(lineId, host as unknown as Lad);
+        const view = host.canvasView as { redrawFromHost?: () => void } | undefined;
+        view?.redrawFromHost?.();
+        return !host.data.lineMap[lineId];
+    } catch (err) {
+        console.error('[LAD] deleteLine 失败', err);
+        return false;
+    }
+}
+
 export async function commitDelete(host: LadViewHost, ids: string[]): Promise<boolean> {
     const copyIds = onlyElementIds(host.data.linkedList, ids);
     if (!copyIds.length) {
@@ -325,6 +342,8 @@ async function applyOp(host: LadViewHost, op: OpCall): Promise<ApplyResult> {
             }
             const { updateCanvas } = await import('@/app/lad/service/updateCanvas');
             updateCanvas({ _this: lad });
+            const view = host.canvasView as { redrawFromHost?: () => void } | undefined;
+            view?.redrawFromHost?.();
             return { lineId: findConnectLineId(host.data, line.OBId, line.targetId) };
         }
         case 'deleteLine': {

@@ -5,7 +5,7 @@
 import { deepClone } from '@/app/common/objects';
 import { generateUuid } from '@/app/common/uuid';
 import { Data, TreeNode, TreeNodeObj } from '@/app/lad/class/index';
-import { getAncestorArray } from '@/app/lad/controller/calculate';
+import { getAncestorArray, ifFBFU } from '@/app/lad/controller/calculate';
 import Lad from '@/app/lad/index';
 import { saveCache } from '@/app/lad/service/saveCache';
 import scrollFun_ from '@/app/lad/service/scrollFun';
@@ -51,6 +51,122 @@ export function deleteArr(id: string[], _this: Lad, ifSaveCache: boolean): void 
 }
 
 
+function findFblAncestorId(startId: string, linkedList: TreeNodeObj): string | undefined {
+    let id: string | undefined = startId;
+    while (id) {
+        const node = linkedList[id];
+        if (!node) {
+            return undefined;
+        }
+        if (node.blockType === 'FBL') {
+            return id;
+        }
+        id = node.parent;
+    }
+    return undefined;
+}
+
+function clearFbPinConnect(linkedList: TreeNodeObj, leftId: string): void {
+    const left = linkedList[leftId];
+    if (!left) {
+        return;
+    }
+    const fbId = left.rightConnectedId;
+    const pinIndex = left.connectedIndex;
+    if (fbId !== undefined && pinIndex !== undefined && linkedList[fbId]?.left) {
+        delete (linkedList[fbId].left as { connectId?: string }[])[pinIndex].connectId;
+    } else {
+        for (const node of Object.values(linkedList)) {
+            const pins = node.left;
+            if (!pins) {
+                continue;
+            }
+            for (const pin of pins) {
+                if (pin.connectId === leftId) {
+                    delete pin.connectId;
+                }
+            }
+        }
+    }
+    delete left.rightConnectedId;
+    delete left.connectedIndex;
+}
+
+function fblHasPin(linkedList: TreeNodeObj, fblId: string): boolean {
+    const children = linkedList[fblId]?.children ?? [];
+    return children.some((cid) => linkedList[cid]?.rightConnectedId !== undefined);
+}
+
+/** When the last FB pin wire is gone, FBL becomes a normal ORB (changeFbType.cleanFBL). */
+function releaseEmptyFbl(linkedList: TreeNodeObj, data: Data, fromId: string): void {
+    const fblId = findFblAncestorId(fromId, linkedList);
+    if (!fblId || fblHasPin(linkedList, fblId)) {
+        return;
+    }
+    const fbl = linkedList[fblId];
+    const fbId = fbl.rightConnectedId;
+    fbl.blockType = 'ORB';
+    delete fbl.rightConnectedId;
+    if (fbId && linkedList[fbId]) {
+        delete linkedList[fbId].leftConnectedId;
+    }
+    mergeNode(fblId, data, true);
+}
+
+/**
+ * Insert an open branch after a rail (changeFbType.addOB).
+ */
+export function addOB(leftElementId: string, data: Data) {
+    const linkedList = data.linkedList;
+    const obj = linkedList[leftElementId];
+    const pid = obj.parent;
+    const parent = linkedList[pid as string];
+    const pc = parent.children;
+    if (obj.blockType === 'ANB') {
+        const uuid: string = generateUuid();
+        linkedList[uuid] = {
+            blockType: 'element',
+            type: 'OB',
+            location: { x: 0, y: 0 },
+            width: 1,
+            originalWidth: 1,
+            originalHeight: 1,
+            height: 1,
+            varNameHeight: 0.4,
+            parent: leftElementId,
+        };
+        (obj.children as string[]).push(uuid);
+        OBImproveLevel(leftElementId, linkedList, data);
+    } else if (pc) {
+        const uuid: string = generateUuid();
+        const uuidANB: string = generateUuid();
+        pc.splice(pc.indexOf(leftElementId), 1, uuidANB);
+        linkedList[uuidANB] = {
+            blockType: 'ANB',
+            location: { x: 0, y: 0 },
+            width: 1,
+            originalWidth: 1,
+            originalHeight: 0,
+            height: 1,
+            parent: pid,
+            children: [leftElementId, uuid]
+        };
+        obj.parent = uuidANB;
+        linkedList[uuid] = {
+            blockType: 'element',
+            type: 'OB',
+            location: { x: 0, y: 0 },
+            width: 1,
+            originalWidth: 1,
+            originalHeight: 1,
+            height: 1,
+            varNameHeight: 0.4,
+            parent: uuidANB,
+        };
+        OBImproveLevel(uuidANB, linkedList, data);
+    }
+}
+
 /**
  * Delete a line; only the right-side horizontal line of a parallel branch can be deleted
  * @param id
@@ -74,7 +190,17 @@ export function deleteLine(id: string, _this: Lad) {
     }
     const parent = linkedList[pid];
     const pc = parent.children as string[];
-    if (parent.blockType === 'ANB') {
+    const rightId = line.right as string | undefined;
+    const pinLine = !!(rightId && linkedList[rightId] && ifFBFU(linkedList[rightId].type as string));
+    const fblId = findFblAncestorId(leftElementId, linkedList);
+    if (parent.blockType === 'FBL' || pinLine) {
+        clearFbPinConnect(linkedList, leftElementId);
+        addOB(leftElementId, _this.data);
+        releaseEmptyFbl(linkedList, _this.data, leftElementId);
+    } else if (fblId && parent.blockType === 'ANB') {
+        addOB(leftElementId, _this.data);
+        releaseEmptyFbl(linkedList, _this.data, leftElementId);
+    } else if (parent.blockType === 'ANB') {
         const gid = parent.parent;
         if (gid && linkedList[gid].blockType === 'ORB') {
 
@@ -103,71 +229,11 @@ export function deleteLine(id: string, _this: Lad) {
         if (pc.indexOf(leftElementId) === 0) {
             return throwNotifyInfoHandle('并联第一行禁止删除', 2);
         }
-        let p: TreeNode | undefined = parent;
-        // Check whether this is a function-block child pin
-        while (p !== undefined) {
-            if (p.blockType === 'FBL') {
-                return throwNotifyInfoHandle('与功能块子引脚连接的块禁止删线', 2);
-            }
-            if (p.parent !== undefined) {
-                p = linkedList[p.parent];
-            } else {
-                p = undefined;
-            }
+        if (obj.rightConnectedId !== undefined || (obj.blockType === 'ANB' && obj.rightConnectedId !== undefined)) {
+            clearFbPinConnect(linkedList, leftElementId);
         }
-
-        const uuid: string = generateUuid();
-
-        if (obj.blockType === 'ANB') {
-            linkedList[uuid] = {
-                blockType: 'element',
-                type: 'OB',
-                location: { x: 0, y: 0 },
-                width: 1,
-                originalWidth: 1,
-                originalHeight: 1,
-                height: 1,
-                varNameHeight: 0.4,
-                parent: leftElementId,
-            };
-            (obj.children as string[]).push(uuid);
-            const children = parent.children as string[];
-            let obj1 = undefined;
-            for (let i = children.length - 1; i > -1; i--) {
-                obj1 = linkedList[children[i]];
-                if (obj1 && obj1.blockType === 'ANB' && linkedList[(obj1.children as string[])[(obj1.children as string[]).length - 1]].type === 'OB') {
-                    OBImproveLevel(children[i], linkedList, _this.data);
-                }
-            }
-        } else {
-            const uuidANB: string = generateUuid();
-            pc.splice(pc.indexOf(leftElementId), 1, uuidANB);
-            linkedList[uuidANB] = {
-                blockType: 'ANB',
-                location: { x: 0, y: 0 },
-                width: 1,
-                originalWidth: 1,
-                originalHeight: 0,
-                height: 1,
-                parent: pid,
-                children: [leftElementId, uuid]
-            };
-            obj.parent = uuidANB;
-            linkedList[uuid] = {
-                blockType: 'element',
-                type: 'OB',
-                location: { x: 0, y: 0 },
-                width: 1,
-                originalWidth: 1,
-                originalHeight: 1,
-                height: 1,
-                varNameHeight: 0.4,
-                parent: uuidANB,
-            };
-            OBImproveLevel(uuidANB, linkedList, _this.data);
-        }
-
-
+        addOB(leftElementId, _this.data);
+        releaseEmptyFbl(linkedList, _this.data, leftElementId);
     }
 
 

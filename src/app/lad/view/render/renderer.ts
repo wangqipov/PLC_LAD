@@ -1,6 +1,6 @@
 import type { LineLocation, LM, TreeNode, VirtualDomX, VD } from '@/app/lad/class/index';
 import { TiaTheme } from '@/app/lad/view/core/config';
-import { elementBBox, elementBodyPath, pinPath, wireSegmentPath } from '@/app/lad/view/core/hitPath';
+import { elementBBox, elementBodyPath, elementFrameBox, pinPath, wireSegmentPath } from '@/app/lad/view/core/hitPath';
 import type {
     DrawElementOpts,
     DrawLineOpts,
@@ -327,20 +327,15 @@ export class LadRenderer {
 
         for (const item of this.scene) {
             if (item.kind === 'line') {
-                paintLine(ctx, item.location, item.basicLength, item.color ?? TiaTheme.ink);
+                const selected = selectedSet.has(item.id);
+                paintLine(
+                    ctx,
+                    item.location,
+                    item.basicLength,
+                    selected ? TiaTheme.selectStroke : (item.color ?? TiaTheme.ink)
+                );
             } else if (item.kind === 'polyline') {
                 paintPolyline(ctx, item.points, item.basicLength, item.color);
-            }
-        }
-
-        for (const item of this.scene) {
-            if (item.kind !== 'element') {
-                continue;
-            }
-            const selected = selectedSet.has(item.id);
-            const hover = this.overlay.hoverId === item.id;
-            if (selected || hover) {
-                paintSelectionFrame(ctx, elementBBox(item.treeNode, item.basicLength), hover && !selected);
             }
         }
 
@@ -354,6 +349,17 @@ export class LadRenderer {
                     TiaTheme.ink,
                     item.pinInviewer
                 );
+            }
+        }
+
+        for (const item of this.scene) {
+            if (item.kind !== 'element') {
+                continue;
+            }
+            const selected = selectedSet.has(item.id);
+            const hover = this.overlay.hoverId === item.id;
+            if (selected || hover) {
+                paintSelectionFrame(ctx, elementFrameBox(item.treeNode, item.basicLength), hover && !selected);
             }
         }
 

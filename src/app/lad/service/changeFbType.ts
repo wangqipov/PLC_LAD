@@ -4,10 +4,9 @@
 
 import { FirmFBFU } from '@/app/lad/class/index';
 import { deepClone } from '@/app/common/objects';
-import { generateUuid } from '@/app/common/uuid';
 import { Data, FBParameter, TreeNode, TreeNodeObj } from '@/app/lad/class/index';
 import Lad from '@/app/lad/index';
-import { OBImproveLevel } from '@/app/lad/service/delete';
+import { addOB } from '@/app/lad/service/delete';
 import { saveCache } from '@/app/lad/service/saveCache';
 import { mergeNode, setFB } from '@/app/lad/service/transformData';
 import { updateCanvas } from '@/app/lad/service/updateCanvas';
@@ -168,64 +167,6 @@ function cleanFBL(linkedList: TreeNodeObj, data: Data, id: string) {
             }
         }
         mergeNode(id, data, true);
-    }
-    
-}
-
-/**
- * Add an OB
- * @param id
- * @param delete.
- */
-export function addOB(leftElementId: string, data: Data) {
-
-    const linkedList = data.linkedList;
-    const obj = linkedList[leftElementId];
-    const pid = obj.parent;
-    const parent = linkedList[pid as string];
-    const pc = parent.children;
-    if (obj.blockType === 'ANB') {
-        const uuid: string = generateUuid();
-        linkedList[uuid] = {
-            blockType: 'element',
-            type: 'OB',
-            location: { x: 0, y: 0 },
-            width: 1,
-            originalWidth: 1,
-            originalHeight: 1,
-            height: 1,
-            varNameHeight: 0.4,
-            parent: leftElementId,
-        };
-        (obj.children as string[]).push(uuid);
-        OBImproveLevel(leftElementId, linkedList, data);
-    } else if (pc) {
-        const uuid: string = generateUuid();
-        const uuidANB: string = generateUuid();
-        pc.splice(pc.indexOf(leftElementId), 1, uuidANB);
-        linkedList[uuidANB] = {
-            blockType: 'ANB',
-            location: { x: 0, y: 0 },
-            width: 1,
-            originalWidth: 1,
-            originalHeight: 0,
-            height: 1,
-            parent: pid,
-            children: [leftElementId, uuid]
-        };
-        obj.parent = uuidANB;
-        linkedList[uuid] = {
-            blockType: 'element',
-            type: 'OB',
-            location: { x: 0, y: 0 },
-            width: 1,
-            originalWidth: 1,
-            originalHeight: 1,
-            height: 1,
-            varNameHeight: 0.4,
-            parent: uuidANB,
-        };
-        OBImproveLevel(uuidANB, linkedList, data);
     }
     
 }

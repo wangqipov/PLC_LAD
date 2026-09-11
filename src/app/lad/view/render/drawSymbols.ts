@@ -240,8 +240,10 @@ function drawBox(
     for (const pin of rightPins) {
         const py = boxPinY(treeNode, pin) * basicLength;
         ctx.beginPath();
+        // Stay outside the box so ENO/OUT labels stay readable. calculateLines
+        // starts at x+w-0.5 (under the fill); yellow sits at x+w+0.5.
         ctx.moveTo(x + w, py);
-        ctx.lineTo(x + w + basicLength * 0.25, py);
+        ctx.lineTo(x + w + basicLength * 0.5, py);
         ctx.stroke();
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';

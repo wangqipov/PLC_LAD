@@ -21,7 +21,7 @@ import { moveElements } from '@/app/lad/service/moveElements';
 import { changeFbType } from '@/app/lad/service/changeFbType';
 import { updateCanvas } from '@/app/lad/service/updateCanvas';
 import { getIDS } from '@/app/lad/view/actionComponent/eventBus';
-import { deleteArr } from '@/app/lad/service/delete';
+import { deleteArr, deleteLine } from '@/app/lad/service/delete';
 import { copy, paste } from '@/app/lad/service/paste';
 import { forwardOrBack } from '@/app/lad/service/forwardOrBack';
 export function mountedEvent(Lad: Lad) {
@@ -169,6 +169,12 @@ export function mountedEvent(Lad: Lad) {
     Lad.canvasView.on('nodedelete', (ids: string[]) => {
         if (Array.isArray(ids) && ids.length) {
             deleteArr(ids, Lad, true);
+        }
+    });
+    Lad.canvasView.on('linedelete', (ids: string[]) => {
+        const lineId = Array.isArray(ids) ? ids[0] : undefined;
+        if (lineId) {
+            deleteLine(lineId, Lad);
         }
     });
     Lad.canvasView.on('nodecopy', (ids: string[]) => {
