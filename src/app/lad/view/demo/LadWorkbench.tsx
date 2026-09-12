@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import type { LadData } from '@/app/lad/class/index';
+import { useEffect, useRef, useState } from 'react';
+import type { Data, LadData } from '@/app/lad/class/index';
 import { CanvasView } from '@/app/lad/view/core/core';
 import type { LadViewHost } from '@/app/lad/view/core/viewHost';
 import { PALETTE_GROUPS, PALETTE_MIME } from '@/app/lad/view/interaction/dragDrop';
@@ -13,11 +13,22 @@ import styles from '@/app/lad/view/demo/workbench.module.css';
  * Mounts CanvasView directly, skipping the Lad constructor (unmigrated vscode modules would crash the page).
  * Production still creates the view with `new CanvasView(viewerDom, rootId, this)` in Lad.
  */
+function countElements(data: Data): number {
+    let n = 0;
+    for (const id of Object.keys(data.linkedList)) {
+        if (data.linkedList[id].blockType === 'element') {
+            n += 1;
+        }
+    }
+    return n;
+}
+
 export function LadWorkbench() {
     const animateOutRef = useRef<HTMLDivElement>(null);
     const animateRef = useRef<HTMLDivElement>(null);
     const viewerRef = useRef<HTMLDivElement>(null);
     const viewRef = useRef<CanvasView | null>(null);
+    const [elementCount, setElementCount] = useState(0);
 
     useEffect(() => {
         const viewerDom = viewerRef.current;
@@ -64,10 +75,13 @@ export function LadWorkbench() {
         const view = new CanvasView(viewerDom, data.rootId, host);
         host.canvasView = view;
         viewRef.current = view;
-        view.on('nodedrop', (...args: unknown[]) => {
-            console.log('[LAD] nodedrop', args);
-            // TODO: call project API add / moveElements / connectOB
-        });
+        const refreshCount = () => setElementCount(countElements(host.data));
+        refreshCount();
+        view.on('nodedrop', refreshCount);
+        view.on('nodedelete', refreshCount);
+        view.on('nodepaste', refreshCount);
+        view.on('undo', refreshCount);
+        view.on('redo', refreshCount);
         view.updateScroll();
         return () => {
             view.stage.destroy();
@@ -80,6 +94,7 @@ export function LadWorkbench() {
             <header className={styles.chrome}>
                 <span className={styles.product}>IEC 61131-3 LAD</span>
                 <span className={styles.networkTitle}>Motor control · Network 1</span>
+                <span className={styles.elementCount}>Elements: {elementCount}</span>
                 <span className={styles.hint}>Dbl-click title/pin to rename · Delete wire or element · Ctrl+C/V copy/paste · Ctrl+drag yellow to copy · Ctrl+Z/Y undo/redo · Ctrl+marquee · Yellow slots wire · Scroll zoom</span>
             </header>
             <div className={styles.body}>

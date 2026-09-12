@@ -32,6 +32,12 @@
     flex-shrink: 0;
 }
 
+.elementCount {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: #0b4f8a;
+}
+
 .hint {
     flex: 1 1 100%;
     color: #666;
