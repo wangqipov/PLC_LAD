@@ -33,7 +33,7 @@ export function LadWorkbench() {
             id: 'network-1',
             index: 0,
             show: true,
-            title: '网络 1：电动机星三角',
+            title: 'Network 1: Star-delta motor',
             notes: '',
             data,
             animateDom,
@@ -79,12 +79,12 @@ export function LadWorkbench() {
         <div className={styles.workbench}>
             <header className={styles.chrome}>
                 <span className={styles.product}>IEC 61131-3 LAD</span>
-                <span className={styles.networkTitle}>电动机控制 · 网络 1</span>
-                <span className={styles.hint}>双击标题/引脚改名 · 点选导线 Delete 删线 · Delete 删除 · Ctrl+C 复制 · Ctrl+V 粘贴 · Ctrl+拖到黄点复制 · Ctrl+Z 后退 · Ctrl+Y 前进 · Ctrl框选 · 黄点连线 · 滚轮缩放</span>
+                <span className={styles.networkTitle}>Motor control · Network 1</span>
+                <span className={styles.hint}>Dbl-click title/pin to rename · Delete wire or element · Ctrl+C/V copy/paste · Ctrl+drag yellow to copy · Ctrl+Z/Y undo/redo · Ctrl+marquee · Yellow slots wire · Scroll zoom</span>
             </header>
             <div className={styles.body}>
                 <aside className={styles.palette}>
-                    <div className={styles.paletteHead}>指令</div>
+                    <div className={styles.paletteHead}>Instructions</div>
                     {PALETTE_GROUPS.map((group) => (
                         <div key={group.title} className={styles.group}>
                             <div className={styles.groupTitle}>{group.title}</div>
@@ -112,7 +112,7 @@ export function LadWorkbench() {
                 </aside>
                 <div id="centerView" className={styles.centerView}>
                     <div ref={animateOutRef} className={styles.animateOut}>
-                        <div className={styles.networkBar}>网络 1：电动机星三角</div>
+                        <div className={styles.networkBar}>Network 1: Star-delta motor</div>
                         <div ref={animateRef} className={styles.animate}>
                             <div ref={viewerRef} className={styles.viewer} />
                         </div>

@@ -10,10 +10,12 @@
 
 .chrome {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 16px;
-    height: 32px;
-    padding: 0 12px;
+    gap: 4px 16px;
+    min-height: 32px;
+    height: auto;
+    padding: 4px 12px;
     background: #d6d6d6;
     border-bottom: 1px solid #b4b4b4;
     flex-shrink: 0;
@@ -22,15 +24,19 @@
 .product {
     font-weight: 600;
     color: #0b4f8a;
+    flex-shrink: 0;
 }
 
 .networkTitle {
     color: #333;
+    flex-shrink: 0;
 }
 
 .hint {
-    margin-left: auto;
+    flex: 1 1 100%;
     color: #666;
+    white-space: normal;
+    line-height: 1.35;
 }
 
 .body {

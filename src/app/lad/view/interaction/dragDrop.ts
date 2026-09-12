@@ -162,38 +162,38 @@ export const PALETTE_MIME = 'application/x-lad-element';
 
 export const PALETTE_GROUPS: { title: string; items: { type: PaletteElementType; label: string }[] }[] = [
     {
-        title: '分支',
+        title: 'Branch',
         items: [
-            { type: 'OB', label: '开路分支' },
+            { type: 'OB', label: 'Open branch' },
         ],
     },
     {
-        title: '触点',
+        title: 'Contacts',
         items: [
-            { type: 'NO', label: '常开触点  | |' },
-            { type: 'NC', label: '常闭触点  |/|' },
-            { type: 'P', label: '上升沿    |P|' },
-            { type: 'N', label: '下降沿    |N|' },
-            { type: 'NOT', label: '能流取反' },
+            { type: 'NO', label: 'NO contact  | |' },
+            { type: 'NC', label: 'NC contact  |/|' },
+            { type: 'P', label: 'Rising edge    |P|' },
+            { type: 'N', label: 'Falling edge    |N|' },
+            { type: 'NOT', label: 'Invert power flow' },
         ],
     },
     {
-        title: '线圈',
+        title: 'Coils',
         items: [
-            { type: 'Coil', label: '输出线圈  ( )' },
-            { type: 'N‑COIL', label: '取反线圈  (/)' },
-            { type: 'SET', label: '置位线圈  (S)' },
-            { type: 'RST', label: '复位线圈  (R)' },
+            { type: 'Coil', label: 'Output coil  ( )' },
+            { type: 'N‑COIL', label: 'Negated coil  (/)' },
+            { type: 'SET', label: 'Set coil  (S)' },
+            { type: 'RST', label: 'Reset coil  (R)' },
         ],
     },
     {
-        title: '指令框',
+        title: 'Boxes',
         items: [
-            { type: 'TON', label: 'TON 接通延时' },
-            { type: 'TOF', label: 'TOF 断开延时' },
-            { type: 'TP', label: 'TP 脉冲' },
-            { type: 'CTU', label: 'CTU 增计数' },
-            { type: 'FB', label: 'FB 功能块' },
+            { type: 'TON', label: 'TON on-delay' },
+            { type: 'TOF', label: 'TOF off-delay' },
+            { type: 'TP', label: 'TP pulse' },
+            { type: 'CTU', label: 'CTU up counter' },
+            { type: 'FB', label: 'FB function block' },
         ],
     },
 ];

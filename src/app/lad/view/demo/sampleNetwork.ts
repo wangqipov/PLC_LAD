@@ -88,8 +88,8 @@ export function createSampleNetwork(): Data {
         root: block('ANB', ['nOrb', 'nEnd']),
         nOrb: block('ORB', ['nOpenAnb', 'nTonAnb', 'nDelta'], 'root'),
         nOpenAnb: block('ANB', ['nStart', 'nStop', 'nOpen'], 'nOrb'),
-        nStart: element({ type: 'NO', varName: 'I0.0', varDesc: '起动按钮', parent: 'nOpenAnb' }),
-        nStop: element({ type: 'NC', varName: 'I0.1', varDesc: '停止按钮', parent: 'nOpenAnb' }),
+        nStart: element({ type: 'NO', varName: 'I0.0', varDesc: 'Start button', parent: 'nOpenAnb' }),
+        nStop: element({ type: 'NC', varName: 'I0.1', varDesc: 'Stop button', parent: 'nOpenAnb' }),
         nOpen: element({ type: 'OB', parent: 'nOpenAnb' }),
         nTonAnb: block('ANB', ['nTon', 'nStar'], 'nOrb'),
         nTon: element({
@@ -102,8 +102,8 @@ export function createSampleNetwork(): Data {
             parent: 'nTonAnb',
             ...demoFbPins(),
         }),
-        nStar: element({ type: 'Coil', varName: 'Q0.1', varDesc: '星形接触器', parent: 'nTonAnb' }),
-        nDelta: element({ type: 'Coil', varName: 'Q0.2', varDesc: '三角形接触器', parent: 'nOrb' }),
+        nStar: element({ type: 'Coil', varName: 'Q0.1', varDesc: 'Star contactor', parent: 'nTonAnb' }),
+        nDelta: element({ type: 'Coil', varName: 'Q0.2', varDesc: 'Delta contactor', parent: 'nOrb' }),
         // END after the parallel block so calculateLines does not read parent.parent on a last-child ORB of root ANB
         nEnd: element({ type: 'END', width: 1, height: 1, originalWidth: 1, originalHeight: 1, parent: 'root' }),
     };
@@ -155,7 +155,7 @@ export function createSampleNetwork(): Data {
             FBLeftHeight: 1.5,
         } as LadViewHost);
     } catch (err) {
-        console.error('[LAD] 演示网络布局失败', err);
+        console.error('[LAD] sample network layout failed', err);
     }
 
     return data;
