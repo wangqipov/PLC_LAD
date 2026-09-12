@@ -6,8 +6,8 @@ import { refreshLadLayout } from '@/app/lad/view/core/layoutRefresh';
 
 /** Extra demo element count (elements only, excluding ANB/ORB) */
 const DEMO_EXTRA_ELEMENTS = 5000;
-/** Base unit: 2 series contacts + 2 parallel contacts + a coil (coil keeps the inner ORB from being last child so the right vertical closes) */
-const UNIT_ELEMENT_COUNT = 5;
+/** Nested base unit element count; copies = floor(5000 / this) so the extra total stays ≤ 5000 */
+const UNIT_ELEMENT_COUNT = 15;
 
 function element(partial: Partial<TreeNode> & { type: TreeNode['type'] }): TreeNode {
     const width = partial.width ?? 1;
@@ -120,7 +120,7 @@ export function createSampleNetwork(): Data {
         elementToLineMap: {},
     };
 
-    replicateBaseAndOrUnits(data, Math.ceil(DEMO_EXTRA_ELEMENTS / UNIT_ELEMENT_COUNT));
+    replicateBaseAndOrUnits(data, Math.floor(DEMO_EXTRA_ELEMENTS / UNIT_ELEMENT_COUNT));
     // Copies hang under the root parallel ORB so ANB-in-ANB is not flattened by calculateLocation.
 
     try {
@@ -162,21 +162,45 @@ export function createSampleNetwork(): Data {
 }
 
 /**
- * Base series/parallel unit:
- *   NO — NC —+—— NO —— ( )
- *            +—— NO
- * Coil must follow the parallel block: if ORB is the last ANB child in or-and-or, calculateLines skips the right vertical.
+ * Nested series/parallel unit (ANB never a child of ANB; each ORB is followed by a sibling).
+ *
+ *   NO — NC —+—— NO —+—— NO —— NO
+ *            |       +—— NC
+ *            +—— NO —+——+—— NO — NC —— P
+ *            |       |  +—— NO
+ *            +—— NC — NO
+ *            — NO — ( )
  */
 function createBaseAndOrUnit(): { linkedList: TreeNodeObj; rootId: string } {
     return {
         rootId: 'uAnb',
         linkedList: {
-            uAnb: block('ANB', ['uNo', 'uNc', 'uOrb', 'uCoil']),
-            uNo: element({ type: 'NO', parent: 'uAnb' }),
-            uNc: element({ type: 'NC', parent: 'uAnb' }),
-            uOrb: block('ORB', ['uP0', 'uP1'], 'uAnb'),
-            uP0: element({ type: 'NO', parent: 'uOrb' }),
-            uP1: element({ type: 'NO', parent: 'uOrb' }),
+            uAnb: block('ANB', ['uA', 'uB', 'uOrb0', 'uC', 'uCoil']),
+            uA: element({ type: 'NO', parent: 'uAnb' }),
+            uB: element({ type: 'NC', parent: 'uAnb' }),
+            uOrb0: block('ORB', ['uL0', 'uL1', 'uL2'], 'uAnb'),
+
+            uL0: block('ANB', ['uL0a', 'uL0Orb', 'uL0b'], 'uOrb0'),
+            uL0a: element({ type: 'NO', parent: 'uL0' }),
+            uL0Orb: block('ORB', ['uL0p0', 'uL0p1'], 'uL0'),
+            uL0p0: element({ type: 'NO', parent: 'uL0Orb' }),
+            uL0p1: element({ type: 'NC', parent: 'uL0Orb' }),
+            uL0b: element({ type: 'NO', parent: 'uL0' }),
+
+            uL1: block('ANB', ['uL1a', 'uL1Orb', 'uL1c'], 'uOrb0'),
+            uL1a: element({ type: 'NO', parent: 'uL1' }),
+            uL1Orb: block('ORB', ['uL1p0', 'uL1p1'], 'uL1'),
+            uL1p0: block('ANB', ['uL1n0', 'uL1n1'], 'uL1Orb'),
+            uL1n0: element({ type: 'NO', parent: 'uL1p0' }),
+            uL1n1: element({ type: 'NC', parent: 'uL1p0' }),
+            uL1p1: element({ type: 'NO', parent: 'uL1Orb' }),
+            uL1c: element({ type: 'P', parent: 'uL1' }),
+
+            uL2: block('ANB', ['uL2a', 'uL2b'], 'uOrb0'),
+            uL2a: element({ type: 'NC', parent: 'uL2' }),
+            uL2b: element({ type: 'NO', parent: 'uL2' }),
+
+            uC: element({ type: 'NO', parent: 'uAnb' }),
             uCoil: element({ type: 'Coil', parent: 'uAnb' }),
         },
     };
@@ -240,11 +264,17 @@ function replicateBaseAndOrUnits(data: Data, copies: number): void {
         remapFragmentIds(fragment, map);
         const newRoot = map[templateRoot];
         fragment[newRoot].parent = bulkOrbId;
-        fragment[map.uNo].varName = `U${i}.0`;
-        fragment[map.uNc].varName = `U${i}.1`;
-        fragment[map.uP0].varName = `U${i}.2`;
-        fragment[map.uP1].varName = `U${i}.3`;
-        fragment[map.uCoil].varName = `Q${i}.0`;
+        let ei = 0;
+        for (const id of Object.keys(fragment)) {
+            const node = fragment[id];
+            if (node.blockType !== 'element' || node.type === 'END' || node.type === 'OB') {
+                continue;
+            }
+            node.varName = node.type === 'Coil' || node.type === 'SET' || node.type === 'RST'
+                ? `Q${i}.${ei}`
+                : `U${i}.${ei}`;
+            ei += 1;
+        }
         for (const id of Object.keys(fragment)) {
             linkedList[id] = fragment[id];
         }
