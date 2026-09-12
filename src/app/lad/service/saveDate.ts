@@ -11,7 +11,7 @@ export function saveDate() {
     timeout = setTimeout(() => {
         const context = SingletonViewData.getInstance().context;
         if (context !== undefined) {
-            context.editor.controller.saveFileHandle();
+            context.editor?.controller?.saveFileHandle();
         }
     }, 0);
 }

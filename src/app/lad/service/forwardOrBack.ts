@@ -5,7 +5,8 @@
 import { deepClone } from '@/app/common/objects';
 import { SingletonViewData } from 'lad/eventAndShareData/shareData';
 import { LadData } from '@/app/lad/class/index';
-import { ProgramSegmentAdd, ProgramSegmentDelete, ProgramSegmentOrder, ProgramSegmentParam, isProgramSegmentAdd, isProgramSegmentDelete, isProgramSegmentOrder, isProgramSegmentParam } from '@/app/lad/service/';
+import type { ProgramSegmentAdd, ProgramSegmentDelete, ProgramSegmentOrder, ProgramSegmentParam } from '@/app/lad/service/';
+import { isProgramSegmentAdd, isProgramSegmentDelete, isProgramSegmentOrder, isProgramSegmentParam } from '@/app/lad/service/';
 import { saveDate } from '@/app/lad/service/saveDate';
 import { triggerUndoReDo } from '@/app/lad/stubs/ladMain';
 

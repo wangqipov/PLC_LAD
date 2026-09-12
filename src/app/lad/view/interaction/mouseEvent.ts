@@ -3,12 +3,14 @@ import type { LadViewHost } from '@/app/lad/view/core/viewHost';
 import type { DragLineController } from '@/app/lad/view/interaction/wireDrag';
 import type { Editing, FbEditing } from '@/app/lad/view/core/textEditor';
 import { PALETTE_MIME, dropEventAttrs, elementMovePreview, palettePreviewAt, ghostGridAtAssist, filterAssistForAdd, isCoilLike, isLadElement, onlyElementIds } from '@/app/lad/view/interaction/dragDrop';
+import { isBoxInstruction, pinLabelRect, varLabelRect } from '@/app/lad/view/render/drawSymbols';
+import { elementSlotGrid } from '@/app/lad/stubs/utility';
 import { buildAssistPoints, wireDropToConnectArgs } from '@/app/lad/view/interaction/wireDrag';
 import { idsInMarquee, hitElementByBBox, hitTest, pickAssistExact, pickAssistNear } from '@/app/lad/view/interaction/hitTest';
 import { selectClick, selectMarquee } from '@/app/lad/view/interaction/selection';
 import { nextBasicLength, panBy, zoomAtCursor } from '@/app/lad/view/interaction/zoomPan';
 import { ASSIST_MAGNET, ASSIST_WIRE_HIT } from '@/app/lad/view/core/config';
-import type { MiniRectOpts, PositionDir } from '@/app/lad/view/core/viewHost';
+import type { HitTarget, MiniRectOpts, PositionDir } from '@/app/lad/view/core/viewHost';
 
 export interface CanvasPointerHost {
     canvas: HTMLCanvasElement;
@@ -26,6 +28,7 @@ export interface CanvasPointerHost {
     openTextEditor(editing: Editing | FbEditing, cssX: number, cssY: number, cssW: number): void;
     syncSelection(): void;
     selectionIds: string[];
+    positionList?: MiniRectOpts[];
     installConnectPoints(excludeIds?: Iterable<string>): void;
     applyNodedrop(
         moveType: 'OUT' | 'IN' | 'LINE',
@@ -438,29 +441,12 @@ export function bindCanvasPointerEvents(view: CanvasPointerHost): () => void {
 
     canvas.addEventListener('dblclick', (e) => {
         const { x, y } = cssPos(e);
-        const hit = hitElementByBBox(view.renderer.hitTargets, x, y)
-            ?? hitTest(view.ctx, view.renderer.hitTargets, x, y, view.dpr);
-        if (hit?.kind !== 'element' && hit?.kind !== 'pin') {
+        const hit = hitTest(view.ctx, view.renderer.hitTargets, x, y, view.dpr)
+            ?? hitElementByBBox(view.renderer.hitTargets, x, y);
+        if (hit?.kind !== 'element' && hit?.kind !== 'pin' && hit?.kind !== 'pinLabel') {
             return;
         }
-        const el = view.renderer.scene.find((s) => s.kind === 'element' && s.id === hit.id);
-        if (!el || el.kind !== 'element') {
-            return;
-        }
-        const node = el.treeNode;
-        view.openTextEditor(
-            {
-                id: hit.id,
-                instanceName: node.varName ?? '',
-                textWidth: 80,
-                varAddr: node.varAddr,
-                varDesc: node.varDesc,
-                varDataType: node.varDataType,
-            },
-            x,
-            Math.max(0, y - 24),
-            Math.max(80, (node.width || 1) * view.host.basicLength)
-        );
+        beginNameEdit(view, hit);
     }, { signal });
 
     window.addEventListener('keydown', (e) => {
@@ -584,6 +570,59 @@ function elementType(view: CanvasPointerHost, id?: string): string | undefined {
         return undefined;
     }
     return view.host.data.linkedList[id]?.type as string | undefined;
+}
+
+function beginNameEdit(view: CanvasPointerHost, hit: HitTarget): void {
+    const el = view.renderer.scene.find((s) => s.kind === 'element' && s.id === hit.id);
+    if (!el || el.kind !== 'element') {
+        return;
+    }
+    const node = el.treeNode;
+    if (node.type === 'OB' || node.type === 'END') {
+        return;
+    }
+    const bl = view.host.basicLength;
+    const fontSize = view.host.fontSize;
+    const mh = view.host.margin_horizontal ?? 2;
+    const pinSide = hit.pinSide;
+    const pinIndex = hit.pinIndex;
+    const editPin = (hit.kind === 'pinLabel' || (hit.kind === 'pin' && isBoxInstruction(node.type as string)))
+        && (pinSide === 'left' || pinSide === 'right')
+        && pinIndex !== undefined;
+    if (editPin) {
+        const pin = (pinSide === 'left' ? node.left : node.right)?.[pinIndex];
+        if (!pin) {
+            return;
+        }
+        const box = pinLabelRect(node, pin, pinSide, bl, fontSize, mh);
+        const editing: FbEditing = {
+            id: hit.id,
+            instanceName: pin.varName ?? '',
+            textWidth: box.w,
+            dir: pinSide,
+            pinIndex,
+            varAddr: pin.varAddr,
+            varDesc: pin.varDesc,
+            varDataType: pin.varDataType,
+            pouName: pin.pouName,
+            absoluteWidth: box.w,
+        };
+        view.openTextEditor(editing, box.x, Math.max(0, box.y), Math.max(72, box.w));
+        return;
+    }
+    const box = varLabelRect(node, bl, fontSize, mh);
+    const slotPx = elementSlotGrid(node.width || 1, mh) * bl;
+    const editing: Editing = {
+        id: hit.id,
+        instanceName: node.varName ?? '',
+        textWidth: box.w,
+        varAddr: node.varAddr,
+        varDesc: node.varDesc,
+        varDataType: node.varDataType,
+        eleType: isBoxInstruction(node.type as string) ? 'FB_INS_NAME' : undefined,
+        absoluteWidth: slotPx,
+    };
+    view.openTextEditor(editing, box.x, Math.max(0, box.y), Math.max(80, box.w));
 }
 
 function startWireFrom(

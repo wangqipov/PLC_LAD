@@ -1,4 +1,4 @@
-type Handler = (...args: unknown[]) => void;
+type Handler = (...args: any[]) => void;
 
 /**
  * CanvasView event bus. Matches the original Konva-style .on(name, fn).
@@ -46,7 +46,7 @@ export class ViewEventBus {
  * Collect selected ids for the property pane / variable table.
  * TODO: call project API SingletonOpInfo.instance to write selectedIds
  */
-export function getIDS(group: { attrs: { id?: string; x?: number; y?: number } }): void {
+export function getIDS(group: { attrs: { id?: string; x?: number; y?: number } } | unknown): void {
     // TODO: call project API SingletonOpInfo.instance.getOperationalInfo().selectedIds
     void group;
 }

@@ -54,7 +54,7 @@ export function deleteArr(id: string[], _this: Lad, ifSaveCache: boolean): void 
 function findFblAncestorId(startId: string, linkedList: TreeNodeObj): string | undefined {
     let id: string | undefined = startId;
     while (id) {
-        const node = linkedList[id];
+        const node: TreeNode | undefined = linkedList[id];
         if (!node) {
             return undefined;
         }
@@ -176,7 +176,7 @@ export function deleteLine(id: string, _this: Lad) {
     const lineMap = _this.data.lineMap;
     const linkedList = _this.data.linkedList;
     const line = lineMap[id];
-    if (line.type === 'vertical') {
+    if (!line || line.type === 'vertical') {
         return throwNotifyInfoHandle('禁止删除竖线', 2);
     }
     const leftElementId: string = line.left as string;

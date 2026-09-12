@@ -20,21 +20,22 @@ function pinYPx(treeNode: TreeNode, basicLength: number): number {
  * sibling (the FB). The ink sits on pinY — selection must hug that, not the cell.
  */
 function symbolFrameSize(treeNode: TreeNode, basicLength: number): { y: number; h: number } {
+    const labelH = Math.max(LABEL_PAD_PX, (treeNode.varNameHeight || 0.4) * basicLength);
     if (treeNode.type === 'OB') {
         const py = pinYPx(treeNode, basicLength);
         const h = basicLength * 0.7;
         return { y: py - h / 2, h };
     }
     if (isBoxInstruction(treeNode.type as string)) {
-        const y = treeNode.location.y * basicLength - LABEL_PAD_PX - SELECT_PAD_PX;
-        const h = Math.max(treeNode.height, 0.8) * basicLength + LABEL_PAD_PX + SELECT_PAD_PX * 2;
+        const y = treeNode.location.y * basicLength - labelH - SELECT_PAD_PX;
+        const h = Math.max(treeNode.height, 0.8) * basicLength + labelH + SELECT_PAD_PX * 2;
         return { y, h };
     }
     const py = pinYPx(treeNode, basicLength);
     const body = basicLength * 0.85;
     return {
-        y: py - body / 2 - LABEL_PAD_PX,
-        h: body + LABEL_PAD_PX + SELECT_PAD_PX,
+        y: py - body / 2 - labelH,
+        h: body + labelH + SELECT_PAD_PX,
     };
 }
 

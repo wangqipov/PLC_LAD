@@ -7,6 +7,7 @@ import type { HitKind, HitTarget, MiniRectOpts } from '@/app/lad/view/core/viewH
 const KIND_PRIORITY: Record<HitKind, number> = {
     pin: 4,
     assist: 3,
+    pinLabel: 3,
     element: 2,
     wire: 1,
 };

@@ -3,8 +3,8 @@
 
 
 
-import { TreeNodeObj } from '@/app/lad/class/index';
-import { setPinWidth } from '@/app/lad/class/index';
+import { TreeNode, TreeNodeObj } from '@/app/lad/class/index';
+import { setPinWidth } from '@/app/lad/service/transformData';
 import config from '@/app/lad/config';
 
 /**

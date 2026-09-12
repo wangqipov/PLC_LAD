@@ -1,3 +1,6 @@
+import type { CacheData } from '@/app/lad/class/cacheData';
+import type { FirmFBFU } from '@/app/lad/class/index';
+
 /**
  * Demo stub of the vscode shared singleton. Production still uses lad/eventAndShareData/shareData.
  * Lets transformData.add / initFbPin / layout refresh load in Next.
@@ -54,18 +57,18 @@ export const SingletonOpInfo = {
 
 export class SingletonViewData {
     static inst: SingletonViewData | null = null;
-    watchReturnMap = new Map<string, unknown>();
+    watchReturnMap = new Map<string, { value?: string; hasBeenForced?: boolean }>();
     context: {
         editor?: {
             notificationService?: { info: (text: string) => void };
             controller?: { saveFileHandle: () => void };
         };
     } | undefined;
-    programDataCache: unknown[] = [];
+    programDataCache: CacheData[] = [];
     cacheActiveIndex = 0;
     programData: unknown[] = [];
-    allLibs: { fb: { guid: string }[]; fu: { guid: string }[] }[] = [];
-    allLibsMap: Record<string, unknown> = {};
+    allLibs: { fb: FirmFBFU[]; fu: FirmFBFU[] }[] = [];
+    allLibsMap: Record<string, FirmFBFU> = {};
 
     setCacheActiveIndex(index: number): void {
         this.cacheActiveIndex = index;

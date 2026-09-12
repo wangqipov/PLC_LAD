@@ -3,7 +3,7 @@
 
 
 import Lad from '../index';
-import { TreeNode, TreeNodeObj, StringArr, ElementType, FBParameter } from '../class/index';
+import { TreeNode, TreeNodeObj, StringArr, ElementType, FBParameter, LineMap, FirmFBFU } from '../class/index';
 import { calculateLines, clearVal, ifFBFU, initVDom, calculateLocation, initBlueLine, initHeight, initPinOffsetY, initWidth, cleanLine } from '@/app/lad/controller/calculate';
 import { add as addElement, connectOB as connectOBT, setVarName as setVarNameT, setVarNameParam } from '@/app/lad/service/transformData';
 import { updateViewer } from '@/app/lad/service/updateViewer';
@@ -13,6 +13,7 @@ import { deepClone } from '@/app/common/objects';
 import { initFbPin } from '@/app/lad/service/initFbPin';
 import { saveCache } from '@/app/lad/service/saveCache';
 import { throwNotifyInfoHandle } from '@/app/lad/service/throwNotifyInfoHandle';
+import { generateUuid } from '@/app/common/uuid';
 
 // function gettree(linkedList: TreeNodeObj, rootid: string) {
 
@@ -30,7 +31,7 @@ import { throwNotifyInfoHandle } from '@/app/lad/service/throwNotifyInfoHandle';
  * @param _this
  * @param _this How many copies to make
  */
-function setdata(_this: Fbd, times: number) {
+function setdata(_this: Lad, times: number) {
   let { data } = _this;
   let { linkedList, lineMap } = data;
   let arr1: TreeNodeObj[] = [];
@@ -38,7 +39,7 @@ function setdata(_this: Fbd, times: number) {
   let height1 = 15;
   for (let i = 0; i < times; i++) {
       let height = i*height1
-      let map = {};
+      let map: Record<string, string> = {};
       for (let key in linkedList) {
           map[key] = generateUuid();
       }
@@ -50,24 +51,28 @@ function setdata(_this: Fbd, times: number) {
           newlinkedList[map[key]] = newlinkedList[key];
           delete newlinkedList[key];
           newlinkedList[map[key]].location.y += height;
-          newlinkedList[map[key]].pinY += height;
+          newlinkedList[map[key]].pinY = (newlinkedList[map[key]].pinY ?? 0) + height;
           let left = newlinkedList[map[key]].left;
-          for (let k in left) {
-              left[k].pinY += height;
-              let arr = left[k].connectLineId;
-              if (arr) {
-                  for (let j = 0; j < arr.length; j++) {
-                      arr[j] = map[arr[j]];
+          if (left) {
+              for (let k in left) {
+                  left[k].pinY += height;
+                  let arr = left[k].connectLineId;
+                  if (arr) {
+                      for (let j = 0; j < arr.length; j++) {
+                          arr[j] = map[arr[j]];
+                      }
                   }
               }
           }
           let right = newlinkedList[map[key]].right;
-          for (let k in right) {
-              right[k].pinY += height;
-              let arr = right[k].connectLineId;
-              if (arr) {
-                  for (let j = 0; j < arr.length; j++) {
-                      arr[j] = map[arr[j]];
+          if (right) {
+              for (let k in right) {
+                  right[k].pinY += height;
+                  let arr = right[k].connectLineId;
+                  if (arr) {
+                      for (let j = 0; j < arr.length; j++) {
+                          arr[j] = map[arr[j]];
+                      }
                   }
               }
           }
@@ -77,12 +82,15 @@ function setdata(_this: Fbd, times: number) {
       for (let key in newlinkedlineMap) {
           newlinkedlineMap[map[key]] = newlinkedlineMap[key];
           delete newlinkedlineMap[key];
-          for (let o of newlinkedlineMap[map[key]].path) {
-              o[1] += height;
+          const path = newlinkedlineMap[map[key]].path;
+          if (path) {
+              for (let o of path) {
+                  o[1] += height;
+              }
           }
 
-          newlinkedlineMap[map[key]].leftId = map[newlinkedlineMap[map[key]].left];
-          newlinkedlineMap[map[key]].rightId = map[newlinkedlineMap[map[key]].right];
+          newlinkedlineMap[map[key]].leftId = map[newlinkedlineMap[map[key]].left ?? ''];
+          newlinkedlineMap[map[key]].rightId = map[newlinkedlineMap[map[key]].right ?? ''];
       }
       arr1.push(newlinkedList);
       arr2.push(newlinkedlineMap);
@@ -100,11 +108,13 @@ function setdata(_this: Fbd, times: number) {
   console.log('linkedList',linkedList)
 }
 
-export {
+export type {
     ProgramSegmentAdd,
     ProgramSegmentDelete,
     ProgramSegmentOrder,
     ProgramSegmentParam,
+} from '@/app/lad/class/cacheData';
+export {
     isProgramSegmentAdd,
     isProgramSegmentDelete,
     isProgramSegmentOrder,
@@ -246,8 +256,8 @@ export function setVarName(param: setVarNameP, ifSaveCache: boolean) {
 }
 
 
-export function setTempMonitor(lad: TreeNode | FBParameter, str: String) {
-    Lad.tempMonitor = string;
+export function setTempMonitor(lad: TreeNode | FBParameter, str: string) {
+    lad.tempMonitor = str;
 }
 
 /**
@@ -282,7 +292,7 @@ export function add(addObj: {
     pinIndex?: number;
     width?: number;
     height?: number;
-    FBobj?: FirmFBU;
+    FBobj?: FirmFBFU;
 }, _this: Lad, ifSaveCache: boolean): any {
 
     let cache;

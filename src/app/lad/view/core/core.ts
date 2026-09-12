@@ -3,6 +3,9 @@ import { calculateViewer } from '@/app/lad/service/calculateViewer';
 import { updateScroll as applyLadUpdateScroll } from '@/app/lad/service/updateScroll';
 import { ViewEventBus } from '@/app/lad/view/actionComponent/eventBus';
 import type { Editing, FbEditing } from '@/app/lad/view/core/textEditor';
+import { isFbEditing } from '@/app/lad/view/core/textEditor';
+import { getStrWidth } from '@/app/lad/stubs/utility';
+import { blockTextNum } from '@/app/lad/view/core/config';
 import type {
     DrawElementOpts,
     DrawLineOpts,
@@ -84,7 +87,7 @@ export class CanvasView {
         this.init();
     }
 
-    on(name: string, handler: (...args: unknown[]) => void): void {
+    on(name: string, handler: (...args: any[]) => void): void {
         this.bus.on(name, handler);
     }
 
@@ -425,18 +428,57 @@ export class CanvasView {
     openTextEditor(editing: Editing | FbEditing, cssX: number, cssY: number, cssW: number): void {
         this.destoryTextEditor();
         const input = document.createElement('input');
-        input.value = editing.instanceName ?? '';
-        input.style.cssText = `position:absolute;left:${cssX}px;top:${cssY}px;width:${cssW}px;height:22px;font-size:${this.host.fontSize}px;border:1px solid #00a2e8;padding:0 4px;z-index:5;`;
+        const original = editing.instanceName ?? '';
+        input.value = original;
+        input.style.cssText = `position:absolute;left:${cssX}px;top:${cssY}px;width:${cssW}px;height:22px;font-size:${this.host.fontSize}px;border:1px solid #00a2e8;padding:0 4px;z-index:5;background:#fff;`;
         this.viewerDom.style.position = 'relative';
         this.viewerDom.appendChild(input);
         input.focus();
+        input.select();
+        let cancel = false;
+        input.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Escape') {
+                ev.preventDefault();
+                cancel = true;
+                this.destoryTextEditor();
+                return;
+            }
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                input.blur();
+            }
+        });
         input.addEventListener('blur', () => {
+            if (cancel) {
+                return;
+            }
             editing.instanceName = input.value;
-            editing.textWidth = this.ctx.measureText(input.value).width;
+            editing.textWidth = getStrWidth(
+                input.value,
+                isFbEditing(editing) ? blockTextNum : undefined,
+                editing.absoluteWidth
+            );
             this.emit('onBlur', editing);
+            if (this.host.invokeCoreOnDrop) {
+                void this.applySetVarName(editing);
+            }
             this.destoryTextEditor();
         });
         this.editorEl = input;
+    }
+
+    async applySetVarName(editing: Editing | FbEditing): Promise<void> {
+        if (!this.host.invokeCoreOnDrop) {
+            return;
+        }
+        try {
+            const { commitSetVarName } = await import('@/app/lad/view/interaction/commitDrop');
+            await commitSetVarName(this.host, editing);
+        } catch (err) {
+            console.error('[LAD] 修改变量名失败', err);
+        }
+        this.installConnectPoints();
+        this.redrawFromHost();
     }
 
     dispose(): void {

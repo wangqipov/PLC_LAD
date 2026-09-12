@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext"],
+    "target": "ES2017",
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -21,7 +22,9 @@
       "@/*": ["./src/*"],
       "lad/eventAndShareData/shareData": ["./src/app/lad/stubs/shareData.ts"],
       "vs/editor/browser/widget/ld/lad/eventAndShareData/shareData": ["./src/app/lad/stubs/shareData.ts"],
-      "vs/editor/browser/widget/ld/lad/plcLad/eventAndShareData/shareData": ["./src/app/lad/stubs/shareData.ts"]
+      "vs/editor/browser/widget/ld/lad/plcLad/eventAndShareData/shareData": ["./src/app/lad/stubs/shareData.ts"],
+      "vs/editor/browser/widget/ld/lad/plcLad/class/index": ["./src/app/lad/class/index.ts"],
+      "vs/editor/browser/widget/ld/lad/plcLad/controller/calculate": ["./src/app/lad/controller/calculate.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

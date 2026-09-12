@@ -28,6 +28,11 @@ export function iffBFU(type: string) {
     return ifFBU(type);
 }
 
+/** Spelling used in getImage */
+export function ifFFBFU(type: string) {
+    return ifFBU(type);
+}
+
 /**
  * Get connected elements on the right
  * @param _this
@@ -2303,14 +2308,16 @@ function ORBandFBLLine(_this: Lad, id: string, ifUseOldId: boolean) {
                         } else {
                             lastItem = get_lastItem(o, dir);
                         }
-                    } else if (node.blockType === 'element') {
-                        lastItem = node;
+                    } else {
+                        lastItem = get_lastItem(o, dir);
                     }
-                } else if (dir === 'left') {
-                    lastItem = linkedList[children[l - 1]];
+                } else if (node.blockType === 'element') {
+                    lastItem = node;
                 }
                 return lastItem;
             }
+            lastItem = linkedList[children[l - 1]];
+            return lastItem;
         }
 
 

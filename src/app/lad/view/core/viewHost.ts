@@ -98,7 +98,7 @@ export interface ScenePolyline {
 
 export type SceneItem = SceneElement | SceneLine | ScenePolyline;
 
-export type HitKind = 'element' | 'pin' | 'wire' | 'assist';
+export type HitKind = 'element' | 'pin' | 'pinLabel' | 'wire' | 'assist';
 
 export interface HitTarget {
     kind: HitKind;

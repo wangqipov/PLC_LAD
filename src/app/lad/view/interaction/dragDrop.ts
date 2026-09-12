@@ -64,7 +64,7 @@ export interface ElementMoveState {
     gridY: number;
 }
 
-export function dropEventAttrs(assist: MiniRectOpts | null, fallbackRootId: string): {
+export function dropEventAttrs(assist: MiniRectOpts | null | undefined, fallbackRootId: string): {
     attrs: { id: string; parentId: string; direction: PositionDir; pinIndex?: number };
 } {
     if (assist) {

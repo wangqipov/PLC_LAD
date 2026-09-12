@@ -1,7 +1,12 @@
 // Coil types
 export const LdCoilTypesArr: string[] = ['Coil'];
 export class FirmFBFU {
-    parameters: FBParameter[] | undefined;
+    guid?: string;
+    name?: string;
+    parameters?: FBParameter[];
+    paraLessCount?: number;
+    isAlterable?: boolean;
+    returnType?: string;
 }
 export type JsonObj = Record<string, unknown>;
 export { CanvasView } from '@/app/lad/view/core/core';
@@ -75,6 +80,10 @@ export interface FBParameter {
     tempMonitor?: string;
     varWidth?: number;
     negation?: boolean;
+    dataType?: string;
+    name?: string;
+    useType?: string;
+    connectLineId?: string[];
 
 }
 export interface CanvasData {
@@ -122,7 +131,16 @@ const LdCoilType = {
   RST: "RST",          // reset coil -(R)-
 } as const;
 
-export type ElementType = (keyof typeof LdContactType) | (keyof typeof LdCoilType) | 'OB' | 'FB' | 'END';
+export type ElementType =
+    | (keyof typeof LdContactType)
+    | (keyof typeof LdCoilType)
+    | 'OB'
+    | 'FB'
+    | 'FU'
+    | 'END'
+    | 'jump'
+    | 'return'
+    | 'Coil';
 export interface TreeNode {
     deBug?: boolean;// breakpoint state
     /**
@@ -130,7 +148,7 @@ export interface TreeNode {
      */
     setLonger?: boolean;
     setHigher?: boolean;
-    setPinYHingher?: boolean;
+    setPinYHigher?: boolean;
     /**
      * var error message
      */
@@ -255,6 +273,9 @@ export interface TreeNode {
     varHeight?: number;
     descHeight?: number;
     addrHeight?: number;
+    closeENO?: boolean;
+    hasBeenForced?: boolean;
+    tempMonitor?: string;
 }
 
 /**
@@ -296,12 +317,6 @@ export type VirtualDom = {
 export type VirtualDomX = {
     [K: number]: VD;
 }
-/**
- * Outermost layer of the line map
- */
-export type LineMap = {
-    [K: string]: LineMap;
-}
 export type LineLocation = {
     start: {
         x: number;
@@ -325,8 +340,17 @@ export interface LM {
      * block connected on the right of the line
      */
     right?: string;
+    leftId?: string;
+    rightId?: string;
+    path?: [number, number][];
     /**
      * start and end position of the line
      */
-    location?: LineLocation;
+    location: LineLocation;
+}
+/**
+ * Outermost layer of the line map
+ */
+export type LineMap = {
+    [K: string]: LM;
 }

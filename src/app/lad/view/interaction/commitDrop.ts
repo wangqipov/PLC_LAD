@@ -1,5 +1,9 @@
-import type { ElementType } from '@/app/lad/class/index';
+import type { ElementType, FBParameter } from '@/app/lad/class/index';
 import type Lad from '@/app/lad/index';
+import { setVarName } from '@/app/lad/service/transformData';
+import { calculateFBVarHeight, calculateVarHeight } from '@/app/lad/service/varNameHeight';
+import type { Editing, FbEditing } from '@/app/lad/view/core/textEditor';
+import { isFbEditing } from '@/app/lad/view/core/textEditor';
 import type { LadViewHost, PositionDir } from '@/app/lad/view/core/viewHost';
 import { isBoxInstruction, isContact } from '@/app/lad/view/render/drawSymbols';
 import { isCoilLike, isLadElement, onlyElementIds } from '@/app/lad/view/interaction/dragDrop';
@@ -180,6 +184,58 @@ export async function commitConnectLine(
         console.error('[LAD] connectOB 失败', err);
         return false;
     }
+}
+
+/**
+ * Same path as ladEvent onBlur: calculateVarHeight / calculateFBVarHeight, then transformData.setVarName.
+ * Demo cannot call index.setVarName (needs a full Lad + saveCache).
+ */
+export async function commitSetVarName(host: LadViewHost, editing: Editing | FbEditing): Promise<boolean> {
+    const node = host.data.linkedList[editing.id];
+    if (!node || node.blockType !== 'element') {
+        return false;
+    }
+    if (isFbEditing(editing)) {
+        const pin = (editing.dir === 'left' ? node.left : node.right)?.[editing.pinIndex] as FBParameter | undefined;
+        if (!pin) {
+            return false;
+        }
+        const heightObj = calculateFBVarHeight(pin, editing);
+        setVarName({
+            data: host.data,
+            width: editing.textWidth,
+            id: editing.id,
+            dir: editing.dir,
+            fbIndex: editing.pinIndex,
+            val: editing.instanceName ? editing.instanceName : '',
+            varNameHeight: heightObj.varNameHeight,
+            varHeight: heightObj.varHeight,
+            pouName: editing.pouName,
+            varAddr: editing.varAddr,
+            varDesc: editing.varDesc,
+            varDataType: editing.varDataType,
+        });
+    } else {
+        const heightObj = calculateVarHeight(node, editing);
+        setVarName({
+            data: host.data,
+            width: editing.textWidth,
+            id: editing.id,
+            val: editing.instanceName ? editing.instanceName : '',
+            vid: editing.vtid,
+            jumpId: editing.jumpId,
+            jumpName: editing.jumpName,
+            jumpIndex: editing.jumpIndex,
+            varNameHeight: heightObj.varNameHeight,
+            varHeight: heightObj.varHeight,
+            pouName: editing.pouName ? editing.pouName : '',
+            varAddr: editing.varAddr ? editing.varAddr : '',
+            varDesc: editing.varDesc ? editing.varDesc : '',
+            varDataType: editing.varDataType,
+        });
+    }
+    await runUpdateCanvas(host);
+    return true;
 }
 
 /** After every data mutation, call host updateCanvas (layout + initCanvas + updateViewer) */

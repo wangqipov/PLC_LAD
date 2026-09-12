@@ -58,7 +58,7 @@ export function copy(paste: string[], _this: Lad): {
     let rootId: string = '';
     const linkedList = _this.data.linkedList;
     for (const o of paste) {
-        if (ifCoil(linkedList[o].type as string) || linkedList[o].type === 'jump' || linkedList[o].type === 'return' || linkedList[o].type === 'OB') {
+        if (ifCoil(linkedList[o].type as string) || linkedList[o].type === 'jump' || linkedList[o].type === 'return') {
             throwNotifyInfoHandle('禁止复制线圈、jump、return', 2);
             return null;
         }

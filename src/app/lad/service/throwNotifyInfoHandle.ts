@@ -8,6 +8,6 @@ import { SingletonViewData } from 'vs/editor/browser/widget/ld/lad/eventAndShare
 export function throwNotifyInfoHandle(text: string, type: number) {
     const context = SingletonViewData.getInstance().context;
     if (context !== undefined) {
-        context.editor.notificationService.info(text);
+        context.editor?.notificationService?.info(text);
     }
 }

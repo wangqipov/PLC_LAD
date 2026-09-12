@@ -1,0 +1,34 @@
+---
+description: Always reuse existing LAD core algorithms; do not invent parallel logic
+alwaysApply: true
+---
+
+# Prefer existing core algorithms
+
+View / demo / interaction code may only **call** core methods. Do not reimplement layout, height, connect, add, delete, paste, or rename.
+
+## Must use (do not replace)
+
+| Task | Use this |
+|------|----------|
+| Add / drop | `transformData.add` + `addCheck` |
+| Connect open branch / FB pin | `ifCanConnectOB` + `connectOB` |
+| Move / paste | `moveElements` / `paste` |
+| Delete element or line | `deleteArr` / `deleteLine` |
+| Rename title or FB pin | `calculateVarHeight` / `calculateFBVarHeight` then `setVarName` |
+| Layout after mutation | `updateCanvas` (or demo `refreshLadLayout` — same order) |
+| Pin align / FBL height | existing `initHeight.FBL` (`offsetPin0` / `pinOffsetFirstPin`) |
+| Lines | `calculateLines` → `lineMap` |
+
+## Do not
+
+- Invent a second height, connect, or layout formula in the view layer
+- Mutate `linkedList` fields that those methods already write (`varName`, `varNameHeight`, `connectId`, pin offsets)
+- Change `calculate.ts` formulas unless fixing a proven layout bug
+- Add new data-model fields when an existing one already stores the value
+
+## Demo vs production
+
+- Production: `ladEvent` → `index.*` wrappers (`setVarName`, `add`, …)
+- Demo (`invokeCoreOnDrop`): call the **same** core functions (`transformData.*`, height helpers), then `updateCanvas` / `refreshLadLayout`
+- Demo must not skip the height / check / connect helpers just because it cannot construct a full `Lad`

@@ -1,4 +1,4 @@
-import type { TreeNodeObj } from '@/app/lad/class/index';
+import type { TreeNode, TreeNodeObj } from '@/app/lad/class/index';
 import { ASSIST_OUTSET, ASSIST_SIZE } from '@/app/lad/view/core/config';
 import type { HitTarget, LadViewHost, MiniRectOpts, PositionDir } from '@/app/lad/view/core/viewHost';
 import { boxPinY, elementDrawX, isBoxInstruction, isCoil, orthogonalPreview } from '@/app/lad/view/render/drawSymbols';
@@ -12,19 +12,19 @@ function isFbFu(type?: string): boolean {
 export function findBranchOpenId(linkedList: TreeNodeObj, id: string): string | undefined {
     let current: string | undefined = id;
     while (current) {
-        const node = linkedList[current];
+        const node: TreeNode | undefined = linkedList[current];
         if (!node) {
             return undefined;
         }
         if (node.type === 'OB') {
             return current;
         }
-        const parentId = node.parent;
+        const parentId: string | undefined = node.parent;
         if (!parentId) {
             return undefined;
         }
-        const parent = linkedList[parentId];
-        const children = parent?.blockType === 'ANB' ? parent.children : undefined;
+        const parent: TreeNode | undefined = linkedList[parentId];
+        const children: string[] | undefined = parent?.blockType === 'ANB' ? parent.children : undefined;
         if (children?.length) {
             const lastId = children[children.length - 1];
             if (linkedList[lastId]?.type === 'OB') {

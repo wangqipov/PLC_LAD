@@ -491,7 +491,7 @@ export function add(addObj: {
                             originalWidth: width,
                             originalHeight: 0,
                             height: height,
-                            parent: parentId,
+                            parent: parId,
                             children: children,
                         };
                         setConnected(obj, linkedList, Pid);
@@ -535,7 +535,7 @@ export function add(addObj: {
                             originalWidth: width,
                             originalHeight: 0,
                             height: height,
-                            parent: parentId,
+                            parent: parId,
                             children: children,
                         };
                         const pin = (linkedList[(linkedList[id].rightConnectedId as string)].left as FBParameter[])[linkedList[id].connectedIndex as number];
@@ -597,18 +597,18 @@ export function setFB(linkedList: TreeNodeObj, uuid: string, FBobj: FirmFBFU, ty
     //  right.push(obj);
     // }
 
-    const l1 = FBobj.name.length + 1;
+    const l1 = (FBobj.name ?? '').length + 1;
     let l2 = 1;
     let l3 = 1;
 
     for (const o of left) {
-        if (l2 < o.name.length) {
-            l2 = o.name.length;
+        if (l2 < (o.name ?? '').length) {
+            l2 = (o.name ?? '').length;
         }
     }
     for (const o of right) {
-        if (l3 < o.name.length) {
-            l3 = o.name.length;
+        if (l3 < (o.name ?? '').length) {
+            l3 = (o.name ?? '').length;
         }
     }
     const l4 = l2 + l3 + 1;
@@ -1552,6 +1552,7 @@ export function ifCanConnectOB(obj: COBobj, data: Data): boolean {
                 }
                 return false;// end
             }
+            return false;
         };
         if (root.blockType === 'ORB' || root.blockType === 'FBL') {
 
@@ -1791,7 +1792,8 @@ export function deleteElement(id: string, data: Data, force: boolean, ifSaveCach
 
 
 
-                if (fblco.blockType === 'ANB' && linkedList[(fblco.children as string[])][(fblco.children as string[]).length - 1].type !== 'OB') {
+                const kids = (fblco.children as string[]) || [];
+                if (fblco.blockType === 'ANB' && kids.length > 0 && linkedList[kids[kids.length - 1]].type !== 'OB') {
                     const uuid: string = generateUuid();
                     (fblco.children as string[]).push(uuid);
                     linkedList[uuid] = {
@@ -1856,10 +1858,10 @@ export function deleteElement(id: string, data: Data, force: boolean, ifSaveCach
                 }
             }
             // Delete FBL
-            pc.splice(pc.indexOf(fblcid), 1);
+            pc.splice(pc.indexOf(fblid), 1);
             // Place dismantled FBL contents below the FB
             pc.splice(insertIndex + 1, 0, ...arr);
-            delete linkedList[fblcid];
+            delete linkedList[fblid];
 
         }
 

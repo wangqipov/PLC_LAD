@@ -1,6 +1,6 @@
 import type { LineLocation, LM, TreeNode, VirtualDomX, VD } from '@/app/lad/class/index';
 import { TiaTheme } from '@/app/lad/view/core/config';
-import { elementBBox, elementBodyPath, elementFrameBox, pinPath, wireSegmentPath } from '@/app/lad/view/core/hitPath';
+import { elementBBox, elementBodyPath, elementFrameBox, pinPath, rectPath, wireSegmentPath } from '@/app/lad/view/core/hitPath';
 import type {
     DrawElementOpts,
     DrawLineOpts,
@@ -11,7 +11,7 @@ import type {
     SceneLine,
     ScenePolyline,
 } from '@/app/lad/view/core/viewHost';
-import { boxPinY, isBoxInstruction, isCoil, paintElement, paintLine, paintPolyline, wirePinX } from '@/app/lad/view/render/drawSymbols';
+import { boxPinY, isBoxInstruction, isCoil, paintElement, paintLine, paintPolyline, pinLabelRect, wirePinX } from '@/app/lad/view/render/drawSymbols';
 import {
     paintAssistRect,
     paintGhost,
@@ -191,7 +191,7 @@ export class LadRenderer {
         }
     }
 
-    rebuildHitTargets(basicLength = 30): void {
+    rebuildHitTargets(basicLength = 30, margin_horizontal = 2): void {
         void basicLength;
         this.hitTargets = [];
         for (const item of this.scene) {
@@ -209,7 +209,7 @@ export class LadRenderer {
                     path: elementBodyPath(treeNode, bl),
                     bbox: elementBBox(treeNode, bl),
                 });
-                this.pushPinHits(id, treeNode, bl);
+                this.pushPinHits(id, treeNode, bl, item.textOpts.fontSize, margin_horizontal);
             }
         }
         for (const assist of this.overlay.assistPoints) {
@@ -226,7 +226,7 @@ export class LadRenderer {
         }
     }
 
-    private pushPinHits(id: string, treeNode: TreeNode, basicLength: number): void {
+    private pushPinHits(id: string, treeNode: TreeNode, basicLength: number, fontSize: number, margin_horizontal = 2): void {
         const py = (treeNode.pinY ?? treeNode.location.y + (treeNode.pinOffsetY ?? 0.4)) * basicLength;
         const x = wirePinX(treeNode, 'left') * basicLength;
         const w = (wirePinX(treeNode, 'right') - wirePinX(treeNode, 'left')) * basicLength;
@@ -234,6 +234,7 @@ export class LadRenderer {
             const left = treeNode.left ?? [];
             left.forEach((pin, index) => {
                 const cy = boxPinY(treeNode, pin) * basicLength;
+                const label = pinLabelRect(treeNode, pin, 'left', basicLength, fontSize, margin_horizontal);
                 this.hitTargets.push({
                     kind: 'pin',
                     id,
@@ -241,16 +242,31 @@ export class LadRenderer {
                     pinSide: 'left',
                     path: pinPath(x, cy),
                 });
+                this.hitTargets.push({
+                    kind: 'pinLabel',
+                    id,
+                    pinIndex: index,
+                    pinSide: 'left',
+                    path: rectPath(label.x, label.y, label.w, label.h),
+                });
             });
             const right = treeNode.right ?? [];
             right.forEach((pin, index) => {
                 const cy = boxPinY(treeNode, pin) * basicLength;
+                const label = pinLabelRect(treeNode, pin, 'right', basicLength, fontSize, margin_horizontal);
                 this.hitTargets.push({
                     kind: 'pin',
                     id,
                     pinIndex: index,
                     pinSide: 'right',
                     path: pinPath(x + w, cy),
+                });
+                this.hitTargets.push({
+                    kind: 'pinLabel',
+                    id,
+                    pinIndex: index,
+                    pinSide: 'right',
+                    path: rectPath(label.x, label.y, label.w, label.h),
                 });
             });
             return;
@@ -349,7 +365,8 @@ export class LadRenderer {
                     item.basicLength,
                     item.textOpts.fontSize,
                     TiaTheme.ink,
-                    item.pinInviewer
+                    item.pinInviewer,
+                    host.margin_horizontal ?? 2
                 );
             }
         }
@@ -381,7 +398,7 @@ export class LadRenderer {
             paintMarquee(ctx, m.x0, m.y0, m.x1, m.y1);
         }
         ctx.restore();
-        this.rebuildHitTargets(host.basicLength);
+        this.rebuildHitTargets(host.basicLength, host.margin_horizontal ?? 2);
     }
 }
 

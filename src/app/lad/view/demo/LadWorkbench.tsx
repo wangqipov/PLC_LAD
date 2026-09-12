@@ -80,7 +80,7 @@ export function LadWorkbench() {
             <header className={styles.chrome}>
                 <span className={styles.product}>IEC 61131-3 LAD</span>
                 <span className={styles.networkTitle}>电动机控制 · 网络 1</span>
-                <span className={styles.hint}>点选导线 Delete 删线 · Delete 删除 · Ctrl+C 复制 · Ctrl+V 粘贴 · Ctrl+拖到黄点复制 · Ctrl+Z 后退 · Ctrl+Y 前进 · Ctrl框选 · 黄点连线 · 滚轮缩放</span>
+                <span className={styles.hint}>双击标题/引脚改名 · 点选导线 Delete 删线 · Delete 删除 · Ctrl+C 复制 · Ctrl+V 粘贴 · Ctrl+拖到黄点复制 · Ctrl+Z 后退 · Ctrl+Y 前进 · Ctrl框选 · 黄点连线 · 滚轮缩放</span>
             </header>
             <div className={styles.body}>
                 <aside className={styles.palette}>

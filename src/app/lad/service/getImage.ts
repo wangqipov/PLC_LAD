@@ -78,7 +78,7 @@ export function drawViewer(_this: Lad, isScroll?: boolean) {
                     textOpts: { fontSize: _this.fontSize, lineHeight: _this.lineHeight },
                     id: o,
                     heightV: _this.data.heightV,
-                    pinInViewer: pinInViewer
+                    pinInviewer: pinInViewer
                 });
             }
 

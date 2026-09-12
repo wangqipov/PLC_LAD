@@ -22,3 +22,7 @@ export interface FbEditing extends Editing {
     dir: 'left' | 'right';
     pinIndex: number;
 }
+
+export function isFbEditing(e: Editing | FbEditing): e is FbEditing {
+    return (e as FbEditing).dir === 'left' || (e as FbEditing).dir === 'right';
+}

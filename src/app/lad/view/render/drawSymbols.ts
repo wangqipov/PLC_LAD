@@ -1,5 +1,7 @@
 import type { FBParameter, TreeNode } from '@/app/lad/class/index';
-import { TiaTheme } from '@/app/lad/view/core/config';
+import { elementSlotGrid, pinNameAbsWidth, STR_LINE_GRID, wrapStr } from '@/app/lad/stubs/utility';
+import config from '@/app/lad/config';
+import { blockTextNum, TiaTheme } from '@/app/lad/view/core/config';
 import type { PinViewerRange } from '@/app/lad/view/core/viewHost';
 
 const BOX_TYPES = new Set([
@@ -64,12 +66,85 @@ function strokeSetup(ctx: CanvasRenderingContext2D, color: string, width = 1.5):
     ctx.lineJoin = 'miter';
 }
 
+function nameLinePx(basicLength: number): number {
+    return STR_LINE_GRID * basicLength;
+}
+
+function fillWrappedLines(
+    ctx: CanvasRenderingContext2D,
+    lines: string[],
+    x: number,
+    firstY: number,
+    linePx: number,
+    down: boolean
+): void {
+    for (let i = 0; i < lines.length; i++) {
+        const y = down ? firstY + i * linePx : firstY - (lines.length - 1 - i) * linePx;
+        ctx.fillText(lines[i], x, y);
+    }
+}
+
+/** Hit / editor box for the name drawn above the symbol */
+export function varLabelRect(
+    treeNode: TreeNode,
+    basicLength: number,
+    fontSize: number,
+    margin_horizontal = 2
+): { x: number; y: number; w: number; h: number } {
+    const box = elementDrawX(treeNode);
+    const cx = (box.x + box.w / 2) * basicLength;
+    const py = pinYPx(treeNode, basicLength);
+    const symbolTop = isBoxInstruction(treeNode.type as string)
+        ? treeNode.location.y * basicLength
+        : py - basicLength * 0.32;
+    const h = Math.max(fontSize + 6, (treeNode.varNameHeight || STR_LINE_GRID) * basicLength);
+    const w = elementSlotGrid(treeNode.width || box.w, margin_horizontal) * basicLength;
+    return { x: cx - w / 2, y: symbolTop - 3 - h, w, h };
+}
+
+/**
+ * Pin names sit in the setFB inner columns (after pinLength, split at mid).
+ * Not the element slot — that width is only for titles above the symbol.
+ */
+function pinNameColumn(
+    treeNode: TreeNode,
+    side: 'left' | 'right',
+    basicLength: number
+): { x: number; w: number } {
+    const x = treeNode.location.x * basicLength;
+    const boxW = treeNode.width * basicLength;
+    const mid = x + boxW / 2;
+    const w = pinNameAbsWidth(treeNode.width, basicLength);
+    const inset = config.pinLength * basicLength;
+    if (side === 'left') {
+        return { x: x + inset, w };
+    }
+    return { x: mid, w };
+}
+
+/** Hit / editor box for a pin name inside an FB / box instruction */
+export function pinLabelRect(
+    treeNode: TreeNode,
+    pin: FBParameter,
+    side: 'left' | 'right',
+    basicLength: number,
+    fontSize: number,
+    margin_horizontal = 2
+): { x: number; y: number; w: number; h: number } {
+    const py = boxPinY(treeNode, pin) * basicLength;
+    const font = Math.max(10, fontSize - 1);
+    const h = Math.max(font + 6, (pin.varNameHeight || 0.6) * basicLength);
+    const col = pinNameColumn(treeNode, side, basicLength);
+    return { x: col.x, y: py - nameLinePx(basicLength) / 2, w: col.w, h };
+}
+
 /** Variable name above the symbol (TIA convention) */
 function drawVarLabel(
     ctx: CanvasRenderingContext2D,
     treeNode: TreeNode,
     basicLength: number,
-    fontSize: number
+    fontSize: number,
+    margin_horizontal = 2
 ): void {
     const box = elementDrawX(treeNode);
     const cx = (box.x + box.w / 2) * basicLength;
@@ -83,8 +158,16 @@ function drawVarLabel(
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     const name = treeNode.varName || treeNode.varAddr || '';
-    if (name) {
-        ctx.fillText(name, cx, y);
+    const absW = elementSlotGrid(treeNode.width || box.w, margin_horizontal) * basicLength;
+    const reserved = treeNode.varNameHeight || STR_LINE_GRID;
+    const lines = wrapStr(name, undefined, absW);
+    if (lines.length) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(cx - absW / 2, y - reserved * basicLength, absW, reserved * basicLength + 4);
+        ctx.clip();
+        fillWrappedLines(ctx, lines, cx, y, nameLinePx(basicLength), false);
+        ctx.restore();
     }
 }
 
@@ -208,7 +291,8 @@ function drawBox(
     basicLength: number,
     fontSize: number,
     color: string,
-    pinInviewer?: PinViewerRange | null
+    pinInviewer?: PinViewerRange | null,
+    margin_horizontal = 2
 ): void {
     const x = treeNode.location.x * basicLength;
     const y = treeNode.location.y * basicLength;
@@ -232,6 +316,8 @@ function drawBox(
     const leftPins = pinRange(treeNode.left, pinInviewer?.left);
     const rightPins = pinRange(treeNode.right, pinInviewer?.right);
     ctx.font = `${Math.max(10, fontSize - 1)}px "Segoe UI", sans-serif`;
+    const leftCol = pinNameColumn(treeNode, 'left', basicLength);
+    const rightCol = pinNameColumn(treeNode, 'right', basicLength);
 
     for (const pin of leftPins) {
         const py = boxPinY(treeNode, pin) * basicLength;
@@ -241,7 +327,14 @@ function drawBox(
         ctx.stroke();
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(pin.varName || pin.varDataType || pinNameFallback(pin, 'IN'), x + 4, py);
+        const leftLines = wrapStr(pin.varName || pin.varDataType || pinNameFallback(pin, 'IN'), blockTextNum, leftCol.w);
+        const colH = (pin.varNameHeight || 0.6) * basicLength;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(leftCol.x, py - nameLinePx(basicLength) / 2, leftCol.w, colH);
+        ctx.clip();
+        fillWrappedLines(ctx, leftLines, leftCol.x + 4, py, nameLinePx(basicLength), true);
+        ctx.restore();
     }
     for (const pin of rightPins) {
         const py = boxPinY(treeNode, pin) * basicLength;
@@ -253,7 +346,14 @@ function drawBox(
         ctx.stroke();
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        ctx.fillText(pin.varName || pin.varDataType || pinNameFallback(pin, 'Q'), x + w - 4, py);
+        const rightLines = wrapStr(pin.varName || pin.varDataType || pinNameFallback(pin, 'Q'), blockTextNum, rightCol.w);
+        const colH = (pin.varNameHeight || 0.6) * basicLength;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(rightCol.x, py - nameLinePx(basicLength) / 2, rightCol.w, colH);
+        ctx.clip();
+        fillWrappedLines(ctx, rightLines, rightCol.x + rightCol.w - 4, py, nameLinePx(basicLength), true);
+        ctx.restore();
     }
 }
 
@@ -296,7 +396,8 @@ export function paintElement(
     basicLength: number,
     fontSize: number,
     color: string = TiaTheme.ink,
-    pinInviewer?: PinViewerRange | null
+    pinInviewer?: PinViewerRange | null,
+    margin_horizontal = 2
 ): void {
     if (treeNode.blockType !== 'element') {
         return;
@@ -306,9 +407,9 @@ export function paintElement(
         drawOpenBranch(ctx, treeNode, basicLength, color);
         return;
     }
-    drawVarLabel(ctx, treeNode, basicLength, fontSize);
+    drawVarLabel(ctx, treeNode, basicLength, fontSize, margin_horizontal);
     if (isBoxInstruction(type)) {
-        drawBox(ctx, treeNode, basicLength, fontSize, color, pinInviewer);
+        drawBox(ctx, treeNode, basicLength, fontSize, color, pinInviewer, margin_horizontal);
         return;
     }
     if (isCoil(type)) {

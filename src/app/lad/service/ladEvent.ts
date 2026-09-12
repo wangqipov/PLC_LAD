@@ -12,8 +12,7 @@ import Lad from '@/app/lad/index';
 import { Editing, FbEditing } from '@/app/lad/view/core/textEditor';
 import { add, connectOB, setVarName } from './index';
 import { ElementType, FBParameter, TreeNode } from '../class/index';
-import { getStrHeight } from '@/app/lad/stubs/utility';
-import { blockTextNum } from '@/app/lad/view/core/config';
+import { calculateFBVarHeight, calculateVarHeight } from '@/app/lad/service/varNameHeight';
 import { PositionDir } from '@/app/lad/view';
 import { filterLineAssists } from '@/app/lad/view/interaction/wireDrag';
 import { ifCanConnectOB } from '@/app/lad/service/transformData';
@@ -43,7 +42,7 @@ export function mountedEvent(Lad: Lad) {
             let addOpts: AddOpts;
             // root node
             if (nodeId === Lad.data.rootId) {
-                addOpts = { type: dragInfoData.type, id: Lad.data.rootId, direction: 'left', width: 1, height: 1 };
+                addOpts = { type: dragInfoData.type as ElementType, id: Lad.data.rootId, direction: 'left', width: 1, height: 1 };
                 const newId = add(addOpts, Lad, true);
                 if (newId) {
                     const param = {
@@ -59,7 +58,7 @@ export function mountedEvent(Lad: Lad) {
             //FB FU
             else if (dragInfoData.type === 'FB' || dragInfoData.type === 'FU') {
                 addOpts = buildAddNodeOpts({
-                    type: dragInfoData.type, id: nodeId, direction: direction,
+                    type: dragInfoData.type as ElementType, id: nodeId, direction: direction,
                     width, height, pinIndex: e.attrs.pinIndex
                 }, dragInfoData);
                 // Match FB & FU parameters
@@ -132,7 +131,7 @@ export function mountedEvent(Lad: Lad) {
             // Regular nodes such as contacts and coils
             else {
                 addOpts = buildAddNodeOpts({
-                    type: dragInfoData.type, id: nodeId, direction: direction,
+                    type: dragInfoData.type as ElementType, id: nodeId, direction: direction,
                     width, height, pinIndex: e.attrs.pinIndex
                 }, dragInfoData);
                 const newId = add(addOpts, Lad, true);
@@ -223,7 +222,7 @@ export function mountedEvent(Lad: Lad) {
             if (fbEData.dir === 'left') {
                 heightObj = calculateFBVarHeight((Lad.data.linkedList[fbEData.id].left as FBParameter[])[fbEData.pinIndex], fbEData);
             } else {
-                heightObj = calculateFBVarHeight((Lad.data.linkedList[fbEData.id].right as FBParameter[])[fbEData.pinIndex]);
+                heightObj = calculateFBVarHeight((Lad.data.linkedList[fbEData.id].right as FBParameter[])[fbEData.pinIndex], fbEData);
             }
 
             // ========================================================
@@ -312,64 +311,4 @@ function buildAddNodeOpts(opts: BuildOpts, dragInfoData?: any) {
         console.error('type && width && height 属性不存在');
     }
     return newOpts;
-}
-
-// Compute varNameHeight; minimum is 0.4
-function calculateVarHeight(treeNode: TreeNode, e: any): {
-    varHeight: number;
-    varNameHeight: number;
-} {
-    // FB_INS_NAME is the FB instance name
-    const instanceNameH = e.eleType === 'FB_INS_NAME' ? getStrHeight(e.instanceName, undefined, e.absoluteWidth) : getStrHeight(e.instanceName);
-    // varHeight minimum is 0.4
-    const varHeight = instanceNameH ? instanceNameH : 0.4;
-    if (!treeNode) {
-        return {
-            varHeight,
-            varNameHeight: 0.4
-        };
-    }
-    let descHeight = 0;
-    let addrHeight = 0;
-    if (SingletonOpInfo.addrShow) {
-        addrHeight = getStrHeight(e.varAddr);
-    }
-    if (SingletonOpInfo.descShow) {
-        descHeight = getStrHeight(e.varDesc);
-    }
-    treeNode.descHeight = descHeight;
-    treeNode.addrHeight = addrHeight;
-    return {
-        varHeight,
-        varNameHeight: varHeight + descHeight + addrHeight
-    };
-}
-
-function calculateFBVarHeight(fbParameter: FBParameter, e: any): {
-    varHeight: number;
-    varNameHeight: number;
-} {
-    const instanceNameH = getStrHeight(e.instanceName, blockTextNum);
-    // varHeight minimum is 0.6
-    const varHeight = instanceNameH ? instanceNameH : 0.6;
-    if (!fbParameter) {
-        return {
-            varHeight,
-            varNameHeight: 0.6
-        };
-    }
-    let descHeight = 0;
-    let addrHeight = 0;
-    if (SingletonOpInfo.addrShow) {
-        addrHeight = getStrHeight(e.varAddr);
-    }
-    if (SingletonOpInfo.descShow) {
-        descHeight = getStrHeight(e.varDesc);
-    }
-    fbParameter.descHeight = descHeight;
-    fbParameter.addrHeight = addrHeight;
-    return {
-        varHeight,
-        varNameHeight: varHeight + descHeight + addrHeight
-    };
 }
