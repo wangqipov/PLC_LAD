@@ -1,0 +1,310 @@
+.shell {
+  display: grid;
+  grid-template-columns: 240px 1fr 280px;
+  height: 100%;
+  background: #151515;
+  color: #ddd;
+  font-size: 12px;
+}
+
+.left,
+.right {
+  background: #1e1e1e;
+  border-color: #111;
+  overflow: auto;
+  padding: 12px 10px 24px;
+}
+
+.left {
+  border-right: 1px solid #111;
+}
+
+.right {
+  border-left: 1px solid #111;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.brand strong {
+  font-size: 16px;
+  letter-spacing: 0.12em;
+  color: #f0c040;
+}
+
+.brand span {
+  color: #888;
+}
+
+.search {
+  width: 100%;
+  background: #111;
+  border: 1px solid #333;
+  color: #eee;
+  padding: 6px 8px;
+  margin-bottom: 12px;
+  border-radius: 4px;
+}
+
+.cat {
+  margin-bottom: 14px;
+}
+
+.cat h3,
+.right h3 {
+  font-size: 11px;
+  color: #888;
+  font-weight: 600;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.palItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  background: #2a2a2a;
+  border: 1px solid #333;
+  border-left: 3px solid #666;
+  color: inherit;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  cursor: grab;
+  text-align: left;
+  border-radius: 3px;
+}
+
+.palItem b {
+  font-weight: 600;
+}
+
+.palItem i {
+  font-style: normal;
+  color: #8a8a8a;
+  font-size: 10px;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 42px;
+  padding: 0 12px;
+  background: #202020;
+  border-bottom: 1px solid #111;
+}
+
+.crumbs {
+  color: #9a9a9a;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.link,
+.ghost,
+.queue,
+.stop {
+  border: 1px solid #444;
+  background: #2b2b2b;
+  color: #eee;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.queue {
+  background: #3d6b3d;
+  border-color: #4e8a4e;
+}
+
+.stop {
+  background: #6b3d3d;
+  border-color: #8a4e4e;
+}
+
+.canvas {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background-image:
+    linear-gradient(#1b1b1b 1px, transparent 1px),
+    linear-gradient(90deg, #1b1b1b 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-color: #121212;
+  cursor: grab;
+  touch-action: none;
+}
+
+.world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  width: 4000px;
+  height: 3000px;
+}
+
+.wires {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 4000px;
+  height: 3000px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.node {
+  position: absolute;
+  width: 228px;
+  background: #2a2a2a;
+  border: 1px solid #111;
+  border-radius: 6px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  color: #ddd;
+  user-select: none;
+}
+
+.nodeSelected {
+  outline: 1px solid #f0c040;
+}
+
+.nodeHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  color: #fff;
+  border-radius: 5px 5px 0 0;
+  font-weight: 600;
+}
+
+.nodeHead em {
+  font-style: normal;
+  font-size: 10px;
+  opacity: 0.8;
+  font-weight: 400;
+}
+
+.nodeBody {
+  padding: 8px 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.portRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.portOut {
+  justify-content: flex-end;
+}
+
+.port {
+  width: 10px;
+  height: 10px;
+  border: 1px solid #111;
+  border-radius: 50%;
+  padding: 0;
+  cursor: crosshair;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: #aaa;
+}
+
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  background: #161616;
+  border: 1px solid #333;
+  color: #eee;
+  border-radius: 3px;
+  padding: 4px 6px;
+  font: inherit;
+  resize: vertical;
+}
+
+.st_queued {
+  box-shadow: 0 0 0 1px #888;
+}
+
+.st_running {
+  box-shadow: 0 0 0 1px #f0c040;
+}
+
+.st_done {
+  box-shadow: 0 0 0 1px #5aa65a;
+}
+
+.st_error {
+  box-shadow: 0 0 0 1px #c45c5c;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.muted {
+  color: #888;
+  line-height: 1.45;
+}
+
+.adapters {
+  margin: 0 0 10px 16px;
+  color: #bbb;
+  line-height: 1.6;
+}
+
+.logBox {
+  margin-top: 16px;
+}
+
+.logs {
+  max-height: 280px;
+  overflow: auto;
+  background: #111;
+  border: 1px solid #333;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.logs p {
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.logs span {
+  color: #888;
+  margin-right: 4px;
+}
+
+.right section {
+  margin-bottom: 18px;
+}

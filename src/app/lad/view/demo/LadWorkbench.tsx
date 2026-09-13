@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import type { Data, LadData } from '@/app/lad/class/index';
 import { CanvasView } from '@/app/lad/view/core/core';
 import type { LadViewHost } from '@/app/lad/view/core/viewHost';
 import { PALETTE_GROUPS, PALETTE_MIME } from '@/app/lad/view/interaction/dragDrop';
 import { createSampleNetwork } from '@/app/lad/view/demo/sampleNetwork';
+import { appCache, CACHE_KEY } from '@/app/common/state';
 import styles from '@/app/lad/view/demo/workbench.module.css';
 
 /**
@@ -37,7 +39,8 @@ export function LadWorkbench() {
         if (!viewerDom || !animateDom || !animateOutDom) {
             return;
         }
-        const data = createSampleNetwork();
+        const data = appCache.get<Data>(CACHE_KEY.ladNetwork) ?? createSampleNetwork();
+        appCache.set(CACHE_KEY.ladNetwork, data);
         animateDom.style.width = `${data.widthV}px`;
         animateDom.style.height = `${data.heightV}px`;
         const ladData: LadData = {
@@ -95,6 +98,7 @@ export function LadWorkbench() {
                 <span className={styles.product}>IEC 61131-3 LAD</span>
                 <span className={styles.networkTitle}>Motor control · Network 1</span>
                 <span className={styles.elementCount}>Elements: {elementCount}</span>
+                <Link href="/ai-video" className={styles.aiVideoBtn}>AI Video</Link>
                 <span className={styles.hint}>Dbl-click title/pin to rename · Delete wire or element · Ctrl+C/V copy/paste · Ctrl+drag yellow to copy · Ctrl+Z/Y undo/redo · Ctrl+marquee · Yellow slots wire · Scroll zoom</span>
             </header>
             <div className={styles.body}>
