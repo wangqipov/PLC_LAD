@@ -7,6 +7,8 @@ import { CanvasView } from '@/app/lad/view/core/core';
 import type { LadViewHost } from '@/app/lad/view/core/viewHost';
 import { PALETTE_GROUPS, PALETTE_MIME } from '@/app/lad/view/interaction/dragDrop';
 import { createSampleNetwork } from '@/app/lad/view/demo/sampleNetwork';
+import { LanguageSwitch } from '@/app/common/i18n/LanguageSwitch';
+import { useI18n } from '@/app/common/i18n';
 import { appCache, CACHE_KEY } from '@/app/common/state';
 import styles from '@/app/lad/view/demo/workbench.module.css';
 
@@ -26,6 +28,7 @@ function countElements(data: Data): number {
 }
 
 export function LadWorkbench() {
+    const { t } = useI18n();
     const animateOutRef = useRef<HTMLDivElement>(null);
     const animateRef = useRef<HTMLDivElement>(null);
     const viewerRef = useRef<HTMLDivElement>(null);
@@ -96,17 +99,20 @@ export function LadWorkbench() {
         <div className={styles.workbench}>
             <header className={styles.chrome}>
                 <span className={styles.product}>IEC 61131-3 LAD</span>
-                <span className={styles.networkTitle}>Motor control · Network 1</span>
-                <span className={styles.elementCount}>Elements: {elementCount}</span>
-                <Link href="/ai-video" className={styles.aiVideoBtn}>AI Video</Link>
-                <span className={styles.hint}>Dbl-click title/pin to rename · Delete wire or element · Ctrl+C/V copy/paste · Ctrl+drag yellow to copy · Ctrl+Z/Y undo/redo · Ctrl+marquee · Yellow slots wire · Scroll zoom</span>
+                <span className={styles.networkTitle}>{t('lad.networkTitle')}</span>
+                <span className={styles.elementCount}>{t('lad.elements', { count: elementCount })}</span>
+                <div className={styles.chromeRight}>
+                    <LanguageSwitch />
+                    <Link href="/ai-video" className={styles.aiVideoBtn}>{t('lad.aiVideo')}</Link>
+                </div>
+                <span className={styles.hint}>{t('lad.hint')}</span>
             </header>
             <div className={styles.body}>
                 <aside className={styles.palette}>
-                    <div className={styles.paletteHead}>Instructions</div>
+                    <div className={styles.paletteHead}>{t('lad.palette')}</div>
                     {PALETTE_GROUPS.map((group) => (
                         <div key={group.title} className={styles.group}>
-                            <div className={styles.groupTitle}>{group.title}</div>
+                            <div className={styles.groupTitle}>{t(`lad.group.${group.title}`)}</div>
                             {group.items.map((item) => (
                                 <div
                                     key={item.type}
@@ -123,7 +129,7 @@ export function LadWorkbench() {
                                     }}
                                 >
                                     {item.type === 'OB' ? <OpenBranchIcon /> : null}
-                                    <span>{item.label}</span>
+                                    <span>{t(`lad.item.${item.type}`)}</span>
                                 </div>
                             ))}
                         </div>
@@ -131,7 +137,7 @@ export function LadWorkbench() {
                 </aside>
                 <div id="centerView" className={styles.centerView}>
                     <div ref={animateOutRef} className={styles.animateOut}>
-                        <div className={styles.networkBar}>Network 1: Star-delta motor</div>
+                        <div className={styles.networkBar}>{t('lad.networkBar')}</div>
                         <div ref={animateRef} className={styles.animate}>
                             <div ref={viewerRef} className={styles.viewer} />
                         </div>

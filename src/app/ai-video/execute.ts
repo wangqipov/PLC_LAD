@@ -1,3 +1,4 @@
+import { localeStore, translate } from '@/app/common/i18n';
 import { getNodeType } from './catalog';
 import type { GraphEdge, GraphNode, NodeStatus } from './types';
 
@@ -41,8 +42,13 @@ function topoOrder(nodes: GraphNode[], edges: GraphEdge[]): GraphNode[] | null {
   return ordered.length === nodes.length ? ordered : null;
 }
 
+function t(key: string, vars?: Record<string, string | number>) {
+  return translate(localeStore.getState().locale, key, vars);
+}
+
 function now() {
-  return new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  const locale = localeStore.getState().locale === 'zh' ? 'zh-CN' : 'en-GB';
+  return new Date().toLocaleTimeString(locale, { hour12: false });
 }
 
 export async function runWorkflow(
@@ -54,13 +60,13 @@ export async function runWorkflow(
 ) {
   const order = topoOrder(nodes, edges);
   if (!order) {
-    onLog({ time: now(), nodeId: '', title: 'Graph', message: '存在环路，无法执行' });
+    onLog({ time: now(), nodeId: '', title: 'Graph', message: t('ai.log.cycle') });
     return;
   }
 
   for (const node of order) {
     if (signal.cancelled) {
-      onLog({ time: now(), nodeId: node.id, title: 'Queue', message: '已取消' });
+      onLog({ time: now(), nodeId: node.id, title: 'Queue', message: t('ai.log.cancel') });
       return;
     }
     const def = getNodeType(node.type);
@@ -69,11 +75,13 @@ export async function runWorkflow(
     }
     onStatus(node.id, 'running');
     const engine = String(node.values.engine ?? def.provider);
+    const title = t(`ai.node.${def.type}.title`, undefined, def.title);
+    const desc = t(`ai.node.${def.type}.desc`, undefined, def.description);
     onLog({
       time: now(),
       nodeId: node.id,
-      title: def.title,
-      message: `调用 ${engine} · ${def.description}`,
+      title,
+      message: t('ai.log.call', { engine, desc }),
     });
     await new Promise((resolve) => setTimeout(resolve, 650 + Math.random() * 500));
     if (signal.cancelled) {
@@ -91,8 +99,8 @@ export async function runWorkflow(
     onLog({
       time: now(),
       nodeId: node.id,
-      title: def.title,
-      message: '完成（当前为适配器占位执行，可替换为真实 API）',
+      title,
+      message: t('ai.log.done'),
     });
   }
 }

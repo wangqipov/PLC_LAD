@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useI18n } from '@/app/common/i18n';
 import { generateUuid } from '@/app/common/uuid';
 import { getNodeType } from './catalog';
 import type { GraphEdge, GraphNode, PortType } from './types';
@@ -53,6 +54,7 @@ export function GraphCanvas({
   onChangeValue,
   onDropType,
 }: GraphCanvasProps) {
+  const { t } = useI18n();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [cam, setCam] = useState<Cam>({ x: 40, y: 40, z: 1 });
   const [link, setLink] = useState<LinkDrag | null>(null);
@@ -248,7 +250,7 @@ export function GraphCanvas({
               onPointerDown={(event) => startNodeDrag(event, node)}
             >
               <header className={styles.nodeHead} style={{ background: def.color }}>
-                <span>{def.title}</span>
+                <span>{t(`ai.node.${def.type}.title`, undefined, def.title)}</span>
                 <em>{def.provider}</em>
               </header>
               <div className={styles.nodeBody}>
@@ -267,7 +269,7 @@ export function GraphCanvas({
                 ))}
                 {def.fields.map((field) => (
                   <label key={field.key} className={styles.field}>
-                    <span>{field.label}</span>
+                    <span>{t(`ai.field.${field.key}`, undefined, field.label)}</span>
                     {field.kind === 'textarea' ? (
                       <textarea
                         value={String(node.values[field.key] ?? '')}
@@ -280,7 +282,9 @@ export function GraphCanvas({
                         onChange={(event) => onChangeValue(node.id, field.key, event.target.value)}
                       >
                         {field.options?.map((option) => (
-                          <option key={option}>{option}</option>
+                          <option key={option} value={option}>
+                            {t(`ai.opt.${field.key}.${option}`, undefined, option)}
+                          </option>
                         ))}
                       </select>
                     ) : (

@@ -23,7 +23,7 @@ export function createSampleGraph(): GraphState {
       node('n2', 'llm.expand', 360, 80),
       node('n3', 'image.t2i', 640, 180, { engine: 'Flux.1', size: '1280x720' }),
       node('n4', 'video.i2v', 940, 180, { engine: 'Kling 2.1' }),
-      node('n5', 'audio.music', 940, 460, { mood: '史诗' }),
+      node('n5', 'audio.music', 940, 460, { mood: 'epic' }),
       node('n6', 'audio.mix', 1240, 280),
       node('n7', 'output.save', 1540, 280),
     ],

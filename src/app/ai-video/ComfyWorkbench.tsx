@@ -2,16 +2,18 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { LanguageSwitch } from '@/app/common/i18n/LanguageSwitch';
+import { useI18n } from '@/app/common/i18n';
 import { useStore } from '@/app/common/state';
 import { CATEGORIES, NODE_CATALOG, defaultValues, getNodeType } from './catalog';
 import { runWorkflow } from './execute';
 import { GraphCanvas, newNodeId } from './GraphCanvas';
-import { createSampleGraph } from './sampleGraph';
 import { aiVideoStore, resetAiVideoGraph } from './store';
 import type { NodeStatus } from './types';
 import styles from './workbench.module.css';
 
 export function ComfyWorkbench() {
+  const { t } = useI18n();
   const { nodes, edges, selectedId, query, logs, running } = useStore(aiVideoStore);
   const cancel = useRef({ cancelled: false });
 
@@ -47,7 +49,7 @@ export function ComfyWorkbench() {
     if (!q) {
       return true;
     }
-    return `${item.title} ${item.provider} ${item.type} ${item.category}`.toLowerCase().includes(q);
+    return `${t(`ai.node.${item.type}.title`, undefined, item.title)} ${item.provider} ${item.type} ${t(`ai.cat.${item.category}`)}`.toLowerCase().includes(q);
   });
 
   const setStatus = (id: string, status: NodeStatus, preview?: string) => {
@@ -76,7 +78,7 @@ export function ComfyWorkbench() {
           time: new Date().toLocaleTimeString('zh-CN', { hour12: false }),
           nodeId: '',
           title: 'Queue',
-          message: '开始执行工作流',
+          message: t('ai.log.start'),
         },
         ...prev.logs,
       ],
@@ -100,11 +102,11 @@ export function ComfyWorkbench() {
       <aside className={styles.left}>
         <div className={styles.brand}>
           <strong>AETHER</strong>
-          <span>AI Video Graph</span>
+          <span>{t('ai.brandSub')}</span>
         </div>
         <input
           className={styles.search}
-          placeholder="搜索节点 / 模型"
+          placeholder={t('ai.search')}
           value={query}
           onChange={(event) => aiVideoStore.patch({ query: event.target.value })}
         />
@@ -115,7 +117,7 @@ export function ComfyWorkbench() {
           }
           return (
             <section key={category} className={styles.cat}>
-              <h3>{category}</h3>
+              <h3>{t(`ai.cat.${category}`)}</h3>
               {items.map((item) => (
                 <button
                   key={item.type}
@@ -125,7 +127,7 @@ export function ComfyWorkbench() {
                   onDragStart={(event) => event.dataTransfer.setData('application/x-ai-node', item.type)}
                   style={{ borderLeftColor: item.color }}
                 >
-                  <b>{item.title}</b>
+                  <b>{t(`ai.node.${item.type}.title`, undefined, item.title)}</b>
                   <i>{item.provider}</i>
                 </button>
               ))}
@@ -136,12 +138,13 @@ export function ComfyWorkbench() {
 
       <main className={styles.main}>
         <header className={styles.top}>
-          <div className={styles.crumbs}>ComfyUI 风格流程 · 图生视频 / 文生视频 / 配乐 / 拼接</div>
+          <div className={styles.crumbs}>{t('ai.crumbs')}</div>
           <div className={styles.actions}>
-            <Link className={styles.link} href="/">LAD 编辑器</Link>
-            <button type="button" className={styles.ghost} onClick={() => resetAiVideoGraph()}>重置示例</button>
+            <LanguageSwitch tone="dark" />
+            <Link className={styles.link} href="/">{t('ai.lad')}</Link>
+            <button type="button" className={styles.ghost} onClick={() => resetAiVideoGraph()}>{t('ai.reset')}</button>
             <button type="button" className={running ? styles.stop : styles.queue} onClick={queue}>
-              {running ? '取消队列' : 'Queue Prompt'}
+              {running ? t('ai.cancel') : t('ai.queue')}
             </button>
           </div>
         </header>
@@ -190,32 +193,32 @@ export function ComfyWorkbench() {
 
       <aside className={styles.right}>
         <section>
-          <h3>节点属性</h3>
+          <h3>{t('ai.props')}</h3>
           {selected && selectedDef ? (
             <div className={styles.meta}>
-              <p><b>{selectedDef.title}</b></p>
-              <p>{selectedDef.description}</p>
+              <p><b>{t(`ai.node.${selectedDef.type}.title`, undefined, selectedDef.title)}</b></p>
+              <p>{t(`ai.node.${selectedDef.type}.desc`, undefined, selectedDef.description)}</p>
               <p className={styles.muted}>{selectedDef.provider}</p>
-              <p className={styles.muted}>状态：{selected.status}</p>
+              <p className={styles.muted}>{t('ai.status', { status: t(`ai.status.${selected.status}`) })}</p>
             </div>
           ) : (
-            <p className={styles.muted}>选择画布上的节点，或从左侧拖入新节点。</p>
+            <p className={styles.muted}>{t('ai.pickNode')}</p>
           )}
         </section>
         <section>
-          <h3>适配器</h3>
+          <h3>{t('ai.adapters')}</h3>
           <ul className={styles.adapters}>
             <li>Kling / Runway / Luma / Pika</li>
             <li>Sora / Hailuo 文生视频</li>
             <li>Flux · SDXL · Midjourney</li>
             <li>ElevenLabs · Suno</li>
           </ul>
-          <p className={styles.muted}>执行层目前是占位适配器：拓扑排序后按节点调用。把 `execute.ts` 换成真实 HTTP 即可。</p>
+          <p className={styles.muted}>{t('ai.adapter.hint')}</p>
         </section>
         <section className={styles.logBox}>
-          <h3>执行日志</h3>
+          <h3>{t('ai.logs')}</h3>
           <div className={styles.logs}>
-            {logs.length === 0 ? <p className={styles.muted}>尚未运行</p> : null}
+            {logs.length === 0 ? <p className={styles.muted}>{t('ai.logs.empty')}</p> : null}
             {logs.map((line, index) => (
               <p key={`${line.time}-${index}`}>
                 <span>{line.time}</span> {line.title} — {line.message}

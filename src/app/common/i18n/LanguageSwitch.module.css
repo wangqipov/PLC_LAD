@@ -1,0 +1,41 @@
+.switch {
+  display: inline-flex;
+  border: 1px solid #8aa0b8;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.on,
+.off {
+  border: 0;
+  padding: 4px 10px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.on {
+  background: #0b4f8a;
+  color: #fff;
+}
+
+.off {
+  background: #f3f6f9;
+  color: #333;
+}
+
+.dark {
+  border-color: #555;
+}
+
+.dark .on {
+  background: #d4a017;
+  color: #111;
+}
+
+.dark .off {
+  background: #2b2b2b;
+  color: #ddd;
+}
+
